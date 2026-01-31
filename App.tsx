@@ -1,9 +1,14 @@
-
 import React, { useState, useRef } from 'react';
 import { analyzeSportsFrame, simulatePlay } from './backend/main';
 import { AppState } from './types';
 import { TacticalBoard } from './components/TacticalBoard';
 import { WinProbabilityGauge } from './components/WinProbabilityGauge';
+
+// Fix for "Cannot find name 'ImageCapture'" error
+declare class ImageCapture {
+  constructor(track: MediaStreamTrack);
+  grabFrame(): Promise<ImageBitmap>;
+}
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>({
@@ -20,6 +25,7 @@ const App: React.FC = () => {
   const [inputMode, setInputMode] = useState<'upload' | 'url'>('upload');
   const [urlInput, setUrlInput] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
 
   const processImage = async (base64: string) => {
     setState(prev => ({ 
@@ -94,40 +100,65 @@ const App: React.FC = () => {
   };
 
   const captureFrame = async () => {
-    // Case 1: YouTube Video
+    // Case 1: YouTube Video - Use Screen Capture API
     if (state.youtubeId) {
       try {
-        setState(prev => ({ ...prev, isAnalyzing: true }));
-        
-        // Helper to fetch thumbnail via a robust image proxy (wsrv.nl) that handles CORS
-        const fetchThumbnail = async (quality: string) => {
-          const targetUrl = `https://img.youtube.com/vi/${state.youtubeId}/${quality}.jpg`;
-          const proxyUrl = `https://wsrv.nl/?url=${encodeURIComponent(targetUrl)}&output=jpg`;
-          return fetch(proxyUrl);
-        };
+        // We can't access iframe content directly due to CORS.
+        // We use the Screen Capture API to let the user "snapshot" the current tab.
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            displaySurface: "browser", // Encourages browser tab sharing
+          } as any, // Type cast for newer properties
+          audio: false,
+          selfBrowserSurface: "include" // Encourages allowing current tab
+        } as any);
 
-        // Try maxresdefault first (highest quality)
-        let response = await fetchThumbnail('maxresdefault');
+        const track = stream.getVideoTracks()[0];
+        const imageCapture = new ImageCapture(track);
+        let bitmap: ImageBitmap | null = null;
         
-        // Fallback to hqdefault if maxres fails (common on some videos)
-        if (!response.ok) {
-          console.warn("maxresdefault unavailable, falling back to hqdefault");
-          response = await fetchThumbnail('hqdefault');
+        // Robust capture method
+        try {
+           bitmap = await imageCapture.grabFrame();
+        } catch (e) {
+           // Fallback for browsers without ImageCapture (e.g. Firefox)
+           const video = document.createElement('video');
+           video.srcObject = stream;
+           video.muted = true;
+           await video.play();
+           // Wait a tick for the frame
+           await new Promise(r => setTimeout(r, 100));
+           
+           const cvs = document.createElement('canvas');
+           cvs.width = video.videoWidth;
+           cvs.height = video.videoHeight;
+           cvs.getContext('2d')?.drawImage(video, 0, 0);
+           bitmap = await createImageBitmap(cvs);
+           video.remove();
         }
 
-        if (!response.ok) throw new Error("Failed to retrieve thumbnail from YouTube");
-        
-        const blob = await response.blob();
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64 = reader.result as string;
-          processImage(base64);
-        };
-        reader.readAsDataURL(blob);
+        track.stop(); // Stop sharing immediately after capture
+
+        if (bitmap) {
+          const canvas = document.createElement('canvas');
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          const ctx = canvas.getContext('2d');
+          
+          if (ctx) {
+            ctx.drawImage(bitmap, 0, 0);
+            
+            // Optional: Smart Crop if we can determine the video region relative to the screenshot?
+            // For now, we send the whole viewport. The Vision model is good at focusing on the content.
+            // If the user selects "This Tab", it captures the whole UI.
+            
+            const base64 = canvas.toDataURL('image/jpeg');
+            processImage(base64);
+          }
+        }
       } catch (e) {
-        console.error("Thumbnail fetch error", e);
-        alert("Could not load video thumbnail. The video might be private, region-locked, or missing a thumbnail.");
-        setState(prev => ({ ...prev, isAnalyzing: false }));
+        console.error("Screen capture cancelled or failed", e);
+        // User likely cancelled the picker
       }
       return;
     }
@@ -275,7 +306,10 @@ const App: React.FC = () => {
                 </button>
               </div>
               
-              <div className="relative flex-1 bg-black rounded-lg border border-zinc-800 overflow-hidden flex flex-col">
+              <div 
+                ref={videoContainerRef}
+                className="relative flex-1 bg-black rounded-lg border border-zinc-800 overflow-hidden flex flex-col"
+              >
                 {state.youtubeId ? (
                   <iframe 
                     className="w-full h-full"
@@ -294,7 +328,7 @@ const App: React.FC = () => {
                   />
                 )}
                 
-                <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 pointer-events-auto">
+                <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 pointer-events-auto z-20">
                    <button 
                     onClick={captureFrame}
                     className="px-8 py-4 bg-emerald-500/90 hover:bg-emerald-400 backdrop-blur-sm text-black font-orbitron font-black text-lg rounded-full shadow-[0_0_30px_rgba(16,185,129,0.4)] flex items-center gap-3 transition-all hover:scale-105 whitespace-nowrap"
@@ -303,7 +337,7 @@ const App: React.FC = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    {state.youtubeId ? 'ANALYZE THUMBNAIL' : 'ANALYZE THIS FRAME'}
+                    {state.youtubeId ? 'CAPTURE SCREEN' : 'ANALYZE THIS FRAME'}
                   </button>
                 </div>
               </div>
@@ -311,7 +345,7 @@ const App: React.FC = () => {
               <div className="p-4 bg-zinc-900/50 rounded-lg border border-zinc-800 text-xs text-slate-400">
                 <strong className="text-emerald-500">INSTRUCTIONS:</strong> 
                 {state.youtubeId 
-                  ? " YouTube analysis uses the high-res video thumbnail due to browser security restrictions. For precise frame selection, please upload a video file."
+                  ? " Pause the video at the critical moment. Click 'CAPTURE SCREEN' and select 'This Tab' in the browser dialog to analyze the current frame."
                   : " Pause the video at the critical moment you want to simulate, then click 'Analyze This Frame'."
                 }
               </div>
