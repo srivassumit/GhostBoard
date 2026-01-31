@@ -14,6 +14,7 @@ export interface SimulationResult {
   butterflyEffect: string;
   originalWinProbability: number;
   newWinProbability: number;
+  groundingUrls?: string[];
 }
 
 export interface AppState {
@@ -22,6 +23,7 @@ export interface AppState {
   youtubeId: string | null;
   players: Player[];
   originalPlayers: Player[];
+  detectedSport: string | null;
   isAnalyzing: boolean;
   isSimulating: boolean;
   simulationResult: SimulationResult | null;

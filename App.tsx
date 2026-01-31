@@ -22,6 +22,7 @@ const App: React.FC = () => {
     youtubeId: null,
     players: [],
     originalPlayers: [],
+    detectedSport: null,
     isAnalyzing: false,
     isSimulating: false,
     simulationResult: null,
@@ -46,15 +47,18 @@ const App: React.FC = () => {
       isAnalyzing: true, 
       players: [], 
       originalPlayers: [],
+      detectedSport: null,
       simulationResult: null 
     }));
 
     try {
-      const detectedPlayers = await analyzeSportsFrame(base64);
+      // Backend now returns an object { players, sport }
+      const { players, sport } = await analyzeSportsFrame(base64);
       setState(prev => ({
         ...prev,
-        players: detectedPlayers,
-        originalPlayers: JSON.parse(JSON.stringify(detectedPlayers)),
+        players: players,
+        originalPlayers: JSON.parse(JSON.stringify(players)),
+        detectedSport: sport,
         isAnalyzing: false
       }));
     } catch (err) {
@@ -208,7 +212,7 @@ const App: React.FC = () => {
 
     setState(prev => ({ ...prev, isSimulating: true }));
     try {
-      const result = await simulatePlay(state.originalPlayers, state.players);
+      const result = await simulatePlay(state.originalPlayers, state.players, state.detectedSport || 'Sports');
       setState(prev => ({ ...prev, simulationResult: result, isSimulating: false }));
     } catch (err) {
       console.error(err);
@@ -405,10 +409,17 @@ const App: React.FC = () => {
                   {/* Tactical Board View */}
                   <div className="flex flex-col gap-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-orbitron text-lg font-bold flex items-center gap-2">
-                        <span className="w-1 h-5 bg-emerald-500"></span>
-                        TACTICAL OVERLAY
-                      </h3>
+                      <div className="flex items-center gap-4">
+                        <h3 className="font-orbitron text-lg font-bold flex items-center gap-2">
+                          <span className="w-1 h-5 bg-emerald-500"></span>
+                          TACTICAL OVERLAY
+                        </h3>
+                        {state.detectedSport && (
+                           <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/30 rounded text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
+                              {state.detectedSport}
+                           </span>
+                        )}
+                      </div>
                       <div className="flex gap-2">
                         {(state.videoSrc || state.youtubeId) && (
                           <button 
@@ -447,8 +458,8 @@ const App: React.FC = () => {
                     <div className="p-6 bg-emerald-500/5 border border-emerald-500/20 rounded-xl flex items-center gap-4">
                       <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-emerald-500"></div>
                       <div>
-                        <h4 className="font-bold text-emerald-400">DETECTING ENTITIES</h4>
-                        <p className="text-sm text-slate-400">Gemini is mapping coordinates for players and ball...</p>
+                        <h4 className="font-bold text-emerald-400">DETECTING ENTITIES & SPORT CONTEXT</h4>
+                        <p className="text-sm text-slate-400">Gemini is identifying players and the sport being played...</p>
                       </div>
                     </div>
                   )}
@@ -542,6 +553,26 @@ const App: React.FC = () => {
                             &ldquo;{state.simulationResult?.butterflyEffect}&rdquo;
                           </p>
                         </section>
+                        
+                        {/* Source Grounding */}
+                        {state.simulationResult?.groundingUrls && state.simulationResult.groundingUrls.length > 0 && (
+                          <section className="pt-4 border-t border-white/10">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Sources</label>
+                            <div className="flex flex-col gap-1">
+                              {state.simulationResult.groundingUrls.map((url, idx) => (
+                                <a 
+                                  key={idx} 
+                                  href={url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="text-[10px] text-blue-400 hover:text-blue-300 truncate hover:underline"
+                                >
+                                  {new URL(url).hostname}
+                                </a>
+                              ))}
+                            </div>
+                          </section>
+                        )}
                       </div>
                     )}
                   </div>
