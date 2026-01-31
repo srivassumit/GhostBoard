@@ -279,8 +279,7 @@ const App: React.FC = () => {
 
       <main className="flex-1 overflow-hidden relative">
         {/* === TAB 1: GHOSTPLAY (Existing Functionality) === */}
-        {activeTab === 'ghostplay' && (
-          <div className="w-full h-full flex flex-col lg:flex-row gap-6 p-6">
+        <div className={activeTab === 'ghostplay' ? "w-full h-full flex flex-col lg:flex-row gap-6 p-6" : "hidden"}>
             {/* Left Side: Interaction Zone */}
             <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2">
               {!state.image && !state.videoSrc && !state.youtubeId ? (
@@ -542,12 +541,10 @@ const App: React.FC = () => {
                 <strong>PRO TIP:</strong> Moving defenders closer to the central axis typically reduces the likelihood of successful penetrating through-balls but increases vulnerability to wing-play overlaps.
               </div>
             </aside>
-          </div>
-        )}
+        </div>
 
         {/* === TAB 2: FANPLAY (Placeholder) === */}
-        {activeTab === 'fanplay' && (
-          <div className="w-full h-full flex flex-col items-center justify-center p-6 animate-in fade-in zoom-in duration-300">
+        <div className={activeTab === 'fanplay' ? "w-full h-full flex flex-col items-center justify-center p-6 animate-in fade-in zoom-in duration-300" : "hidden"}>
              <div className="w-24 h-24 mb-6 rounded-full bg-zinc-900 border border-blue-500/30 flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.2)]">
                 <svg className="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
@@ -559,8 +556,7 @@ const App: React.FC = () => {
                The ultimate fan engagement platform. <br/>
                Coming soon to PlayLens.
              </p>
-          </div>
-        )}
+        </div>
       </main>
 
       <footer className="h-8 flex items-center justify-center px-8 border-t border-white/5 bg-black/50 text-[10px] font-bold text-slate-600 tracking-tighter">
