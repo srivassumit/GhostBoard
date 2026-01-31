@@ -12,6 +12,10 @@ declare class ImageCapture {
 }
 
 const App: React.FC = () => {
+  // Set default to 'fanplay'
+  const [activeTab, setActiveTab] = useState<'fanplay' | 'ghostplay'>('fanplay');
+
+  // --- GhostPlay State ---
   const [state, setState] = useState<AppState>({
     image: null,
     videoSrc: null,
@@ -27,6 +31,8 @@ const App: React.FC = () => {
   const [urlInput, setUrlInput] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
+
+  // --- GhostPlay Logic ---
 
   const processImage = async (base64: string) => {
     setState(prev => ({ 
@@ -78,7 +84,6 @@ const App: React.FC = () => {
   };
 
   const extractYoutubeId = (url: string) => {
-    // Extended regex to support 'shorts/' and handle robust matching
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : null;
@@ -101,17 +106,14 @@ const App: React.FC = () => {
   };
 
   const captureFrame = async () => {
-    // Case 1: YouTube Video - Use Screen Capture API with Smart Cropping
     if (state.youtubeId && videoContainerRef.current) {
       try {
-        // We can't access iframe content directly due to CORS.
-        // We use the Screen Capture API to let the user "snapshot" the current tab.
         const stream = await navigator.mediaDevices.getDisplayMedia({
           video: {
-            displaySurface: "browser", // Encourages browser tab sharing
+            displaySurface: "browser", 
           } as any, 
           audio: false,
-          selfBrowserSurface: "include", // Encourages allowing current tab
+          selfBrowserSurface: "include", 
           preferCurrentTab: true, 
         } as any);
 
@@ -119,18 +121,14 @@ const App: React.FC = () => {
         const imageCapture = new ImageCapture(track);
         let bitmap: ImageBitmap | null = null;
         
-        // Robust capture method
         try {
            bitmap = await imageCapture.grabFrame();
         } catch (e) {
-           // Fallback for browsers without ImageCapture (e.g. Firefox)
            const video = document.createElement('video');
            video.srcObject = stream;
            video.muted = true;
            await video.play();
-           // Wait a tick for the frame
            await new Promise(r => setTimeout(r, 100));
-           
            const cvs = document.createElement('canvas');
            cvs.width = video.videoWidth;
            cvs.height = video.videoHeight;
@@ -139,47 +137,34 @@ const App: React.FC = () => {
            video.remove();
         }
 
-        track.stop(); // Stop sharing immediately after capture
+        track.stop(); 
 
         if (bitmap) {
-          // Smart Cropping Logic
-          // 1. Get the bounding box of the video container relative to the viewport
           const rect = videoContainerRef.current.getBoundingClientRect();
-
-          // 2. Calculate scaling factors. 
-          // The capture resolution might be different from window.innerWidth due to DPI (Retina) or Zoom.
           const captureWidth = bitmap.width;
           const captureHeight = bitmap.height;
-          
-          // Use clientWidth/Height to exclude scrollbars if present, 
-          // though innerWidth/Height is often what the capture represents.
-          // We assume "This Tab" capture maps roughly 1:1 to the viewport dimensions times device pixel ratio.
           const viewportWidth = window.innerWidth;
           const viewportHeight = window.innerHeight;
 
           const scaleX = captureWidth / viewportWidth;
           const scaleY = captureHeight / viewportHeight;
 
-          // 3. Calculate crop coordinates
-          // Ensure we don't crop outside bounds
           const cropX = Math.max(0, rect.left * scaleX);
           const cropY = Math.max(0, rect.top * scaleY);
           const cropWidth = Math.min(captureWidth - cropX, rect.width * scaleX);
           const cropHeight = Math.min(captureHeight - cropY, rect.height * scaleY);
 
           const canvas = document.createElement('canvas');
-          // Set canvas size to the displayed size of the video container (or natural size if prefered)
           canvas.width = rect.width;
           canvas.height = rect.height;
           
           const ctx = canvas.getContext('2d');
           
           if (ctx) {
-            // Draw only the cropped region
             ctx.drawImage(
               bitmap, 
-              cropX, cropY, cropWidth, cropHeight, // Source crop
-              0, 0, canvas.width, canvas.height    // Destination
+              cropX, cropY, cropWidth, cropHeight, 
+              0, 0, canvas.width, canvas.height
             );
             
             const base64 = canvas.toDataURL('image/jpeg');
@@ -188,12 +173,10 @@ const App: React.FC = () => {
         }
       } catch (e) {
         console.error("Screen capture cancelled or failed", e);
-        // User likely cancelled the picker
       }
       return;
     }
 
-    // Case 2: Local Video File
     if (!videoRef.current) return;
     
     const canvas = document.createElement('canvas');
@@ -250,289 +233,338 @@ const App: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-[#0a0a0c] text-slate-200">
       {/* Header */}
       <header className="h-16 border-b border-emerald-500/20 flex items-center justify-between px-8 bg-zinc-950/50 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-emerald-500 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.5)]">
-            <span className="text-black font-black text-xl">G</span>
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded bg-emerald-500 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.5)]">
+              <span className="text-black font-black text-xl">P</span>
+            </div>
+            <h1 className="font-orbitron font-black text-xl tracking-tighter neon-text">
+              PLAY<span className="text-emerald-400">LENS</span>
+            </h1>
           </div>
-          <h1 className="font-orbitron font-black text-xl tracking-tighter neon-text">
-            GHOST<span className="text-emerald-400">BOARD</span>
-          </h1>
+
+          {/* Navigation Tabs */}
+          <div className="flex bg-black/40 rounded-lg p-1 border border-zinc-800 ml-4">
+            <button
+              onClick={() => setActiveTab('fanplay')}
+              className={`px-4 py-1.5 text-xs font-bold font-orbitron rounded transition-all ${
+                activeTab === 'fanplay'
+                  ? 'bg-blue-500 text-black shadow-[0_0_10px_rgba(59,130,246,0.4)]'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              FANPLAY
+            </button>
+            <button
+              onClick={() => setActiveTab('ghostplay')}
+              className={`px-4 py-1.5 text-xs font-bold font-orbitron rounded transition-all ${
+                activeTab === 'ghostplay'
+                  ? 'bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.4)]'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              GHOSTPLAY
+            </button>
+          </div>
         </div>
+
         <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
-          <span className="px-2 py-1 border border-zinc-800 rounded">v1.1.2_STABLE</span>
+          <span className="px-2 py-1 border border-zinc-800 rounded">v2.0_BETA</span>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-            SYSTEM ONLINE
+            ONLINE
           </div>
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col lg:flex-row gap-6 p-6 overflow-hidden">
-        {/* Left Side: Interaction Zone */}
-        <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2">
-          {!state.image && !state.videoSrc && !state.youtubeId ? (
-            <div className="flex-1 flex flex-col items-center justify-center cyber-border rounded-2xl bg-zinc-900/30 p-12 text-center">
-              <div className="w-20 h-20 mb-6 rounded-full bg-zinc-800 flex items-center justify-center border-2 border-dashed border-emerald-500/50">
-                <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-orbitron font-bold mb-6">INITIALIZE TACTICAL FEED</h2>
-              
-              <div className="w-full max-w-md bg-black/40 rounded-lg p-1 flex gap-1 mb-6 border border-zinc-800">
-                <button 
-                  onClick={() => setInputMode('upload')}
-                  className={`flex-1 py-2 text-xs font-bold rounded font-orbitron transition-all ${inputMode === 'upload' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
-                >
-                  UPLOAD MEDIA
-                </button>
-                <button 
-                  onClick={() => setInputMode('url')}
-                  className={`flex-1 py-2 text-xs font-bold rounded font-orbitron transition-all ${inputMode === 'url' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
-                >
-                  YOUTUBE URL
-                </button>
-              </div>
-
-              {inputMode === 'upload' ? (
-                <>
-                  <p className="text-slate-500 mb-8 max-w-sm">Upload a video clip or screenshot of a sports play to start your counterfactual simulation.</p>
-                  <label className="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-orbitron font-bold rounded-full cursor-pointer transition-all transform hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-                    SELECT FILE
-                    <input type="file" className="hidden" accept="image/*,video/*" onChange={handleFileUpload} />
-                  </label>
-                </>
-              ) : (
-                <div className="w-full max-w-md flex flex-col gap-4">
-                  <input 
-                    type="text" 
-                    placeholder="https://www.youtube.com/watch?v=..." 
-                    className="w-full px-4 py-3 bg-zinc-900 border border-zinc-700 rounded-lg focus:outline-none focus:border-emerald-500 text-sm font-mono"
-                    value={urlInput}
-                    onChange={(e) => setUrlInput(e.target.value)}
-                  />
-                  <button 
-                    onClick={handleUrlSubmit}
-                    disabled={!urlInput}
-                    className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-black font-orbitron font-bold rounded-lg transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"
-                  >
-                    LOAD VIDEO
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : !state.image && (state.videoSrc || state.youtubeId) ? (
-            <div className="flex flex-col gap-4 h-full">
-              <div className="flex items-center justify-between">
-                <h3 className="font-orbitron text-lg font-bold flex items-center gap-2">
-                  <span className="w-1 h-5 bg-emerald-500"></span>
-                  VIDEO ANALYSIS
-                </h3>
-                <button 
-                  onClick={() => setState(prev => ({ ...prev, videoSrc: null, youtubeId: null }))}
-                  className="px-4 py-1.5 text-xs font-bold border border-zinc-700 rounded hover:bg-zinc-800 transition-colors"
-                >
-                  CHANGE SOURCE
-                </button>
-              </div>
-              
-              <div 
-                ref={videoContainerRef}
-                className="relative flex-1 bg-black rounded-lg border border-zinc-800 overflow-hidden flex flex-col"
-              >
-                {state.youtubeId ? (
-                  <iframe 
-                    className="w-full h-full"
-                    src={`https://www.youtube-nocookie.com/embed/${state.youtubeId}?rel=0&modestbranding=1&controls=1&playsinline=1&origin=${encodeURIComponent(window.location.origin)}`}
-                    title="YouTube video player"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    allowFullScreen
-                  ></iframe>
-                ) : (
-                  <video 
-                    ref={videoRef}
-                    src={state.videoSrc!} 
-                    controls 
-                    className="w-full h-full object-contain"
-                  />
-                )}
-                
-                <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 pointer-events-auto z-20">
-                   <button 
-                    onClick={captureFrame}
-                    className="px-8 py-4 bg-emerald-500/90 hover:bg-emerald-400 backdrop-blur-sm text-black font-orbitron font-black text-lg rounded-full shadow-[0_0_30px_rgba(16,185,129,0.4)] flex items-center gap-3 transition-all hover:scale-105 whitespace-nowrap"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+      <main className="flex-1 overflow-hidden relative">
+        {/* === TAB 1: GHOSTPLAY (Existing Functionality) === */}
+        {activeTab === 'ghostplay' && (
+          <div className="w-full h-full flex flex-col lg:flex-row gap-6 p-6">
+            {/* Left Side: Interaction Zone */}
+            <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2">
+              {!state.image && !state.videoSrc && !state.youtubeId ? (
+                <div className="flex-1 flex flex-col items-center justify-center cyber-border rounded-2xl bg-zinc-900/30 p-12 text-center">
+                  <div className="w-20 h-20 mb-6 rounded-full bg-zinc-800 flex items-center justify-center border-2 border-dashed border-emerald-500/50">
+                    <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
-                    {state.youtubeId ? 'CAPTURE SCREEN' : 'ANALYZE THIS FRAME'}
-                  </button>
-                </div>
-              </div>
-              
-              <div className="p-4 bg-zinc-900/50 rounded-lg border border-zinc-800 text-xs text-slate-400">
-                <strong className="text-emerald-500">INSTRUCTIONS:</strong> 
-                {state.youtubeId 
-                  ? " Click 'CAPTURE SCREEN' and select 'This Tab' in the browser dialog. We will automatically crop to the video player."
-                  : " Pause the video at the critical moment you want to simulate, then click 'Analyze This Frame'."
-                }
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Tactical Board View */}
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-orbitron text-lg font-bold flex items-center gap-2">
-                    <span className="w-1 h-5 bg-emerald-500"></span>
-                    TACTICAL OVERLAY
-                  </h3>
-                  <div className="flex gap-2">
-                    {(state.videoSrc || state.youtubeId) && (
+                  </div>
+                  <h2 className="text-2xl font-orbitron font-bold mb-6">INITIALIZE GHOSTPLAY</h2>
+                  
+                  <div className="w-full max-w-md bg-black/40 rounded-lg p-1 flex gap-1 mb-6 border border-zinc-800">
+                    <button 
+                      onClick={() => setInputMode('upload')}
+                      className={`flex-1 py-2 text-xs font-bold rounded font-orbitron transition-all ${inputMode === 'upload' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                      UPLOAD MEDIA
+                    </button>
+                    <button 
+                      onClick={() => setInputMode('url')}
+                      className={`flex-1 py-2 text-xs font-bold rounded font-orbitron transition-all ${inputMode === 'url' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                      YOUTUBE URL
+                    </button>
+                  </div>
+
+                  {inputMode === 'upload' ? (
+                    <>
+                      <p className="text-slate-500 mb-8 max-w-sm">Upload a video clip or screenshot of a sports play to start your counterfactual simulation.</p>
+                      <label className="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-orbitron font-bold rounded-full cursor-pointer transition-all transform hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+                        SELECT FILE
+                        <input type="file" className="hidden" accept="image/*,video/*" onChange={handleFileUpload} />
+                      </label>
+                    </>
+                  ) : (
+                    <div className="w-full max-w-md flex flex-col gap-4">
+                      <input 
+                        type="text" 
+                        placeholder="https://www.youtube.com/watch?v=..." 
+                        className="w-full px-4 py-3 bg-zinc-900 border border-zinc-700 rounded-lg focus:outline-none focus:border-emerald-500 text-sm font-mono"
+                        value={urlInput}
+                        onChange={(e) => setUrlInput(e.target.value)}
+                      />
                       <button 
-                        onClick={backToVideo}
-                        className="px-4 py-1.5 text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-emerald-400 border border-emerald-500/30 rounded transition-colors flex items-center gap-2"
+                        onClick={handleUrlSubmit}
+                        disabled={!urlInput}
+                        className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-black font-orbitron font-bold rounded-lg transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"
                       >
-                        ← BACK TO VIDEO
+                        LOAD VIDEO
                       </button>
-                    )}
-                    <button 
-                      onClick={resetBoard}
-                      className="px-4 py-1.5 text-xs font-bold border border-zinc-700 rounded hover:bg-zinc-800 transition-colors"
-                    >
-                      RESET POSITIONS
-                    </button>
-                    <button 
-                      onClick={() => setState(prev => ({ ...prev, image: null, videoSrc: null, youtubeId: null }))}
-                      className="px-4 py-1.5 text-xs font-bold border border-zinc-700 rounded hover:bg-zinc-800 transition-colors"
-                    >
-                      NEW SESSION
-                    </button>
-                  </div>
-                </div>
-                
-                {state.image && (
-                  <TacticalBoard 
-                    image={state.image} 
-                    players={state.players} 
-                    onPlayerMove={handlePlayerMove}
-                    disabled={state.isAnalyzing || state.isSimulating}
-                  />
-                )}
-              </div>
-
-              {state.isAnalyzing && (
-                <div className="p-6 bg-emerald-500/5 border border-emerald-500/20 rounded-xl flex items-center gap-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-emerald-500"></div>
-                  <div>
-                    <h4 className="font-bold text-emerald-400">DETECTING ENTITIES</h4>
-                    <p className="text-sm text-slate-400">Gemini is mapping coordinates for players and ball...</p>
-                  </div>
-                </div>
-              )}
-
-              {state.players.length > 0 && !state.isAnalyzing && (
-                <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-xl">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h4 className="font-bold">INSTRUCTIONS</h4>
-                      <p className="text-xs text-slate-400">Drag player nodes to adjust their positions.</p>
                     </div>
+                  )}
+                </div>
+              ) : !state.image && (state.videoSrc || state.youtubeId) ? (
+                <div className="flex flex-col gap-4 h-full">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-orbitron text-lg font-bold flex items-center gap-2">
+                      <span className="w-1 h-5 bg-emerald-500"></span>
+                      VIDEO ANALYSIS
+                    </h3>
                     <button 
-                      onClick={handleSimulate}
-                      disabled={state.isSimulating}
-                      className="px-8 py-3 bg-white hover:bg-slate-200 text-black font-orbitron font-black rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                      onClick={() => setState(prev => ({ ...prev, videoSrc: null, youtubeId: null }))}
+                      className="px-4 py-1.5 text-xs font-bold border border-zinc-700 rounded hover:bg-zinc-800 transition-colors"
                     >
-                      {state.isSimulating ? 'SIMULATING...' : 'RUN SIMULATION'}
+                      CHANGE SOURCE
                     </button>
                   </div>
-                  <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
-                    {state.players.map(p => (
-                      <div key={p.id} className="text-[10px] p-2 bg-zinc-800/50 border border-zinc-700 rounded flex flex-col">
-                        <span className="opacity-50">{p.id}</span>
-                        <span className="font-bold truncate">{p.label}</span>
-                        <span className="text-emerald-500">{Math.round(p.x)},{Math.round(p.y)}</span>
-                      </div>
-                    ))}
+                  
+                  <div 
+                    ref={videoContainerRef}
+                    className="relative flex-1 bg-black rounded-lg border border-zinc-800 overflow-hidden flex flex-col"
+                  >
+                    {state.youtubeId ? (
+                      <iframe 
+                        className="w-full h-full"
+                        src={`https://www.youtube-nocookie.com/embed/${state.youtubeId}?rel=0&modestbranding=1&controls=1&playsinline=1&origin=${encodeURIComponent(window.location.origin)}`}
+                        title="YouTube video player"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        allowFullScreen
+                      ></iframe>
+                    ) : (
+                      <video 
+                        ref={videoRef}
+                        src={state.videoSrc!} 
+                        controls 
+                        className="w-full h-full object-contain"
+                      />
+                    )}
+                    
+                    <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 pointer-events-auto z-20">
+                      <button 
+                        onClick={captureFrame}
+                        className="px-8 py-4 bg-emerald-500/90 hover:bg-emerald-400 backdrop-blur-sm text-black font-orbitron font-black text-lg rounded-full shadow-[0_0_30px_rgba(16,185,129,0.4)] flex items-center gap-3 transition-all hover:scale-105 whitespace-nowrap"
+                      >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        {state.youtubeId ? 'CAPTURE SCREEN' : 'ANALYZE THIS FRAME'}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Right Side: Analysis Results */}
-        <aside className="w-full lg:w-[400px] flex flex-col gap-6">
-          <div className="cyber-border rounded-2xl bg-zinc-900/30 flex-1 flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-white/5 bg-white/5 font-orbitron text-sm font-bold tracking-widest flex items-center gap-2">
-              <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              ANALYSIS_OUTPUT
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {!state.simulationResult && !state.isSimulating ? (
-                <div className="h-full flex flex-col items-center justify-center text-center opacity-30 grayscale">
-                  <svg className="w-12 h-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                  <p className="text-sm font-orbitron">AWAITING SIMULATION DATA</p>
-                </div>
-              ) : state.isSimulating ? (
-                <div className="space-y-4">
-                  <div className="h-4 bg-zinc-800 rounded animate-pulse w-3/4"></div>
-                  <div className="h-4 bg-zinc-800 rounded animate-pulse"></div>
-                  <div className="h-4 bg-zinc-800 rounded animate-pulse w-5/6"></div>
-                  <div className="h-32 bg-zinc-800 rounded animate-pulse w-full"></div>
+                  
+                  <div className="p-4 bg-zinc-900/50 rounded-lg border border-zinc-800 text-xs text-slate-400">
+                    <strong className="text-emerald-500">INSTRUCTIONS:</strong> 
+                    {state.youtubeId 
+                      ? " Click 'CAPTURE SCREEN' and select 'This Tab' in the browser dialog. We will automatically crop to the video player."
+                      : " Pause the video at the critical moment you want to simulate, then click 'Analyze This Frame'."
+                    }
+                  </div>
                 </div>
               ) : (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  {state.simulationResult && (
-                    <WinProbabilityGauge 
-                      original={state.simulationResult.originalWinProbability}
-                      current={state.simulationResult.newWinProbability}
-                    />
+                <>
+                  {/* Tactical Board View */}
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-orbitron text-lg font-bold flex items-center gap-2">
+                        <span className="w-1 h-5 bg-emerald-500"></span>
+                        TACTICAL OVERLAY
+                      </h3>
+                      <div className="flex gap-2">
+                        {(state.videoSrc || state.youtubeId) && (
+                          <button 
+                            onClick={backToVideo}
+                            className="px-4 py-1.5 text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-emerald-400 border border-emerald-500/30 rounded transition-colors flex items-center gap-2"
+                          >
+                            ← BACK TO VIDEO
+                          </button>
+                        )}
+                        <button 
+                          onClick={resetBoard}
+                          className="px-4 py-1.5 text-xs font-bold border border-zinc-700 rounded hover:bg-zinc-800 transition-colors"
+                        >
+                          RESET POSITIONS
+                        </button>
+                        <button 
+                          onClick={() => setState(prev => ({ ...prev, image: null, videoSrc: null, youtubeId: null }))}
+                          className="px-4 py-1.5 text-xs font-bold border border-zinc-700 rounded hover:bg-zinc-800 transition-colors"
+                        >
+                          NEW SESSION
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {state.image && (
+                      <TacticalBoard 
+                        image={state.image} 
+                        players={state.players} 
+                        onPlayerMove={handlePlayerMove}
+                        disabled={state.isAnalyzing || state.isSimulating}
+                      />
+                    )}
+                  </div>
+
+                  {state.isAnalyzing && (
+                    <div className="p-6 bg-emerald-500/5 border border-emerald-500/20 rounded-xl flex items-center gap-4">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-emerald-500"></div>
+                      <div>
+                        <h4 className="font-bold text-emerald-400">DETECTING ENTITIES</h4>
+                        <p className="text-sm text-slate-400">Gemini is mapping coordinates for players and ball...</p>
+                      </div>
+                    </div>
                   )}
 
-                  <section>
-                    <label className="text-[10px] font-bold text-emerald-400/50 uppercase tracking-widest block mb-2">Verdict</label>
-                    <div className={`text-3xl font-orbitron font-black ${
-                      state.simulationResult?.verdict === 'Success' ? 'text-emerald-500' :
-                      state.simulationResult?.verdict === 'Failure' ? 'text-rose-500' : 'text-amber-500'
-                    }`}>
-                      {state.simulationResult?.verdict}
+                  {state.players.length > 0 && !state.isAnalyzing && (
+                    <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-xl">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h4 className="font-bold">INSTRUCTIONS</h4>
+                          <p className="text-xs text-slate-400">Drag player nodes to adjust their positions.</p>
+                        </div>
+                        <button 
+                          onClick={handleSimulate}
+                          disabled={state.isSimulating}
+                          className="px-8 py-3 bg-white hover:bg-slate-200 text-black font-orbitron font-black rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                        >
+                          {state.isSimulating ? 'SIMULATING...' : 'RUN SIMULATION'}
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
+                        {state.players.map(p => (
+                          <div key={p.id} className="text-[10px] p-2 bg-zinc-800/50 border border-zinc-700 rounded flex flex-col">
+                            <span className="opacity-50">{p.id}</span>
+                            <span className="font-bold truncate">{p.label}</span>
+                            <span className="text-emerald-500">{Math.round(p.x)},{Math.round(p.y)}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </section>
-
-                  <section>
-                    <label className="text-[10px] font-bold text-emerald-400/50 uppercase tracking-widest block mb-2">Tactical Breakdown</label>
-                    <p className="text-sm leading-relaxed text-slate-300">
-                      {state.simulationResult?.analysis}
-                    </p>
-                  </section>
-
-                  <section className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
-                    <label className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest block mb-2">The Butterfly Effect</label>
-                    <p className="text-sm italic text-emerald-100/70">
-                      &ldquo;{state.simulationResult?.butterflyEffect}&rdquo;
-                    </p>
-                  </section>
-                </div>
+                  )}
+                </>
               )}
             </div>
+
+            {/* Right Side: Analysis Results */}
+            <aside className="w-full lg:w-[400px] flex flex-col gap-6">
+              <div className="cyber-border rounded-2xl bg-zinc-900/30 flex-1 flex flex-col overflow-hidden">
+                <div className="p-4 border-b border-white/5 bg-white/5 font-orbitron text-sm font-bold tracking-widest flex items-center gap-2">
+                  <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  ANALYSIS_OUTPUT
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                  {!state.simulationResult && !state.isSimulating ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center opacity-30 grayscale">
+                      <svg className="w-12 h-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      <p className="text-sm font-orbitron">AWAITING SIMULATION DATA</p>
+                    </div>
+                  ) : state.isSimulating ? (
+                    <div className="space-y-4">
+                      <div className="h-4 bg-zinc-800 rounded animate-pulse w-3/4"></div>
+                      <div className="h-4 bg-zinc-800 rounded animate-pulse"></div>
+                      <div className="h-4 bg-zinc-800 rounded animate-pulse w-5/6"></div>
+                      <div className="h-32 bg-zinc-800 rounded animate-pulse w-full"></div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                      {state.simulationResult && (
+                        <WinProbabilityGauge 
+                          original={state.simulationResult.originalWinProbability}
+                          current={state.simulationResult.newWinProbability}
+                        />
+                      )}
+
+                      <section>
+                        <label className="text-[10px] font-bold text-emerald-400/50 uppercase tracking-widest block mb-2">Verdict</label>
+                        <div className={`text-3xl font-orbitron font-black ${
+                          state.simulationResult?.verdict === 'Success' ? 'text-emerald-500' :
+                          state.simulationResult?.verdict === 'Failure' ? 'text-rose-500' : 'text-amber-500'
+                        }`}>
+                          {state.simulationResult?.verdict}
+                        </div>
+                      </section>
+
+                      <section>
+                        <label className="text-[10px] font-bold text-emerald-400/50 uppercase tracking-widest block mb-2">Tactical Breakdown</label>
+                        <p className="text-sm leading-relaxed text-slate-300">
+                          {state.simulationResult?.analysis}
+                        </p>
+                      </section>
+
+                      <section className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
+                        <label className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest block mb-2">The Butterfly Effect</label>
+                        <p className="text-sm italic text-emerald-100/70">
+                          &ldquo;{state.simulationResult?.butterflyEffect}&rdquo;
+                        </p>
+                      </section>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 text-[10px] text-blue-300 leading-tight">
+                <strong>PRO TIP:</strong> Moving defenders closer to the central axis typically reduces the likelihood of successful penetrating through-balls but increases vulnerability to wing-play overlaps.
+              </div>
+            </aside>
           </div>
-          
-          <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 text-[10px] text-blue-300 leading-tight">
-            <strong>PRO TIP:</strong> Moving defenders closer to the central axis typically reduces the likelihood of successful penetrating through-balls but increases vulnerability to wing-play overlaps.
+        )}
+
+        {/* === TAB 2: FANPLAY (Placeholder) === */}
+        {activeTab === 'fanplay' && (
+          <div className="w-full h-full flex flex-col items-center justify-center p-6 animate-in fade-in zoom-in duration-300">
+             <div className="w-24 h-24 mb-6 rounded-full bg-zinc-900 border border-blue-500/30 flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.2)]">
+                <svg className="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+             </div>
+             <h2 className="text-3xl font-orbitron font-bold text-white mb-2 tracking-tight">FANPLAY</h2>
+             <p className="text-slate-500 font-mono text-sm max-w-md text-center">
+               The ultimate fan engagement platform. <br/>
+               Coming soon to PlayLens.
+             </p>
           </div>
-        </aside>
+        )}
       </main>
 
       <footer className="h-8 flex items-center justify-center px-8 border-t border-white/5 bg-black/50 text-[10px] font-bold text-slate-600 tracking-tighter">
-        GEMINI 3 SUPERHACK // BUILT FOR COUNTERFACTUAL ANALYSIS // 2024
+        PLAYLENS // TACTICAL INTELLIGENCE SUITE // 2024
       </footer>
     </div>
   );
