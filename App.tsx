@@ -9,6 +9,7 @@ const App: React.FC = () => {
   const [state, setState] = useState<AppState>({
     image: null,
     videoSrc: null,
+    youtubeId: null,
     players: [],
     originalPlayers: [],
     isAnalyzing: false,
@@ -16,6 +17,8 @@ const App: React.FC = () => {
     simulationResult: null,
   });
 
+  const [inputMode, setInputMode] = useState<'upload' | 'url'>('upload');
+  const [urlInput, setUrlInput] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const processImage = async (base64: string) => {
@@ -52,6 +55,7 @@ const App: React.FC = () => {
       setState(prev => ({
         ...prev,
         videoSrc: videoUrl,
+        youtubeId: null,
         image: null,
         players: [],
         simulationResult: null
@@ -66,7 +70,56 @@ const App: React.FC = () => {
     }
   };
 
-  const captureFrame = () => {
+  const extractYoutubeId = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  const handleUrlSubmit = () => {
+    const id = extractYoutubeId(urlInput);
+    if (id) {
+      setState(prev => ({
+        ...prev,
+        videoSrc: null,
+        youtubeId: id,
+        image: null,
+        players: [],
+        simulationResult: null
+      }));
+    } else {
+      alert("Invalid YouTube URL");
+    }
+  };
+
+  const captureFrame = async () => {
+    // Case 1: YouTube Video
+    if (state.youtubeId) {
+      try {
+        setState(prev => ({ ...prev, isAnalyzing: true }));
+        // Use a CORS proxy to fetch the thumbnail since direct access is blocked
+        const thumbnailUrl = `https://img.youtube.com/vi/${state.youtubeId}/maxresdefault.jpg`;
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(thumbnailUrl)}`;
+        
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error("Failed to fetch thumbnail");
+        
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          processImage(base64);
+        };
+        reader.readAsDataURL(blob);
+      } catch (e) {
+        console.error("Thumbnail fetch error", e);
+        alert("Could not load video thumbnail for analysis. Try uploading a screenshot.");
+        setState(prev => ({ ...prev, isAnalyzing: false }));
+      }
+      return;
+    }
+
+    // Case 2: Local Video File
     if (!videoRef.current) return;
     
     const canvas = document.createElement('canvas');
@@ -132,7 +185,7 @@ const App: React.FC = () => {
           </h1>
         </div>
         <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
-          <span className="px-2 py-1 border border-zinc-800 rounded">v1.0.42_PROTOTYPE</span>
+          <span className="px-2 py-1 border border-zinc-800 rounded">v1.1.0_BETA</span>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
             SYSTEM ONLINE
@@ -143,57 +196,110 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col lg:flex-row gap-6 p-6 overflow-hidden">
         {/* Left Side: Interaction Zone */}
         <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2">
-          {!state.image && !state.videoSrc ? (
+          {!state.image && !state.videoSrc && !state.youtubeId ? (
             <div className="flex-1 flex flex-col items-center justify-center cyber-border rounded-2xl bg-zinc-900/30 p-12 text-center">
               <div className="w-20 h-20 mb-6 rounded-full bg-zinc-800 flex items-center justify-center border-2 border-dashed border-emerald-500/50">
                 <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-orbitron font-bold mb-2">INITIALIZE TACTICAL FEED</h2>
-              <p className="text-slate-500 mb-8 max-w-sm">Upload a video clip or screenshot of a sports play to start your counterfactual simulation.</p>
-              <label className="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-orbitron font-bold rounded-full cursor-pointer transition-all transform hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-                SELECT MEDIA
-                <input type="file" className="hidden" accept="image/*,video/*" onChange={handleFileUpload} />
-              </label>
+              <h2 className="text-2xl font-orbitron font-bold mb-6">INITIALIZE TACTICAL FEED</h2>
+              
+              <div className="w-full max-w-md bg-black/40 rounded-lg p-1 flex gap-1 mb-6 border border-zinc-800">
+                <button 
+                  onClick={() => setInputMode('upload')}
+                  className={`flex-1 py-2 text-xs font-bold rounded font-orbitron transition-all ${inputMode === 'upload' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                >
+                  UPLOAD MEDIA
+                </button>
+                <button 
+                  onClick={() => setInputMode('url')}
+                  className={`flex-1 py-2 text-xs font-bold rounded font-orbitron transition-all ${inputMode === 'url' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                >
+                  YOUTUBE URL
+                </button>
+              </div>
+
+              {inputMode === 'upload' ? (
+                <>
+                  <p className="text-slate-500 mb-8 max-w-sm">Upload a video clip or screenshot of a sports play to start your counterfactual simulation.</p>
+                  <label className="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-orbitron font-bold rounded-full cursor-pointer transition-all transform hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+                    SELECT FILE
+                    <input type="file" className="hidden" accept="image/*,video/*" onChange={handleFileUpload} />
+                  </label>
+                </>
+              ) : (
+                <div className="w-full max-w-md flex flex-col gap-4">
+                  <input 
+                    type="text" 
+                    placeholder="https://www.youtube.com/watch?v=..." 
+                    className="w-full px-4 py-3 bg-zinc-900 border border-zinc-700 rounded-lg focus:outline-none focus:border-emerald-500 text-sm font-mono"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                  />
+                  <button 
+                    onClick={handleUrlSubmit}
+                    disabled={!urlInput}
+                    className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-black font-orbitron font-bold rounded-lg transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                  >
+                    LOAD VIDEO
+                  </button>
+                </div>
+              )}
             </div>
-          ) : !state.image && state.videoSrc ? (
+          ) : !state.image && (state.videoSrc || state.youtubeId) ? (
             <div className="flex flex-col gap-4 h-full">
               <div className="flex items-center justify-between">
                 <h3 className="font-orbitron text-lg font-bold flex items-center gap-2">
                   <span className="w-1 h-5 bg-emerald-500"></span>
                   VIDEO ANALYSIS
                 </h3>
-                <label className="px-4 py-1.5 text-xs font-bold border border-zinc-700 rounded hover:bg-zinc-800 transition-colors cursor-pointer">
+                <button 
+                  onClick={() => setState(prev => ({ ...prev, videoSrc: null, youtubeId: null }))}
+                  className="px-4 py-1.5 text-xs font-bold border border-zinc-700 rounded hover:bg-zinc-800 transition-colors"
+                >
                   CHANGE SOURCE
-                  <input type="file" className="hidden" accept="image/*,video/*" onChange={handleFileUpload} />
-                </label>
+                </button>
               </div>
               
               <div className="relative flex-1 bg-black rounded-lg border border-zinc-800 overflow-hidden flex flex-col">
-                <video 
-                  ref={videoRef}
-                  src={state.videoSrc} 
-                  controls 
-                  className="w-full h-full object-contain"
-                />
+                {state.youtubeId ? (
+                  <iframe 
+                    className="w-full h-full"
+                    src={`https://www.youtube.com/embed/${state.youtubeId}?rel=0&modestbranding=1`}
+                    title="YouTube video player"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
+                ) : (
+                  <video 
+                    ref={videoRef}
+                    src={state.videoSrc!} 
+                    controls 
+                    className="w-full h-full object-contain"
+                  />
+                )}
                 
-                <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2">
+                <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 pointer-events-auto">
                    <button 
                     onClick={captureFrame}
-                    className="px-8 py-4 bg-emerald-500/90 hover:bg-emerald-400 backdrop-blur-sm text-black font-orbitron font-black text-lg rounded-full shadow-[0_0_30px_rgba(16,185,129,0.4)] flex items-center gap-3 transition-all hover:scale-105"
+                    className="px-8 py-4 bg-emerald-500/90 hover:bg-emerald-400 backdrop-blur-sm text-black font-orbitron font-black text-lg rounded-full shadow-[0_0_30px_rgba(16,185,129,0.4)] flex items-center gap-3 transition-all hover:scale-105 whitespace-nowrap"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    ANALYZE THIS FRAME
+                    {state.youtubeId ? 'ANALYZE THUMBNAIL' : 'ANALYZE THIS FRAME'}
                   </button>
                 </div>
               </div>
               
               <div className="p-4 bg-zinc-900/50 rounded-lg border border-zinc-800 text-xs text-slate-400">
-                <strong className="text-emerald-500">INSTRUCTIONS:</strong> Pause the video at the critical moment you want to simulate, then click "Analyze This Frame".
+                <strong className="text-emerald-500">INSTRUCTIONS:</strong> 
+                {state.youtubeId 
+                  ? " YouTube analysis uses the high-res video thumbnail due to browser security restrictions. For precise frame selection, please upload a video file."
+                  : " Pause the video at the critical moment you want to simulate, then click 'Analyze This Frame'."
+                }
               </div>
             </div>
           ) : (
@@ -206,7 +312,7 @@ const App: React.FC = () => {
                     TACTICAL OVERLAY
                   </h3>
                   <div className="flex gap-2">
-                    {state.videoSrc && (
+                    {(state.videoSrc || state.youtubeId) && (
                       <button 
                         onClick={backToVideo}
                         className="px-4 py-1.5 text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-emerald-400 border border-emerald-500/30 rounded transition-colors flex items-center gap-2"
@@ -220,10 +326,12 @@ const App: React.FC = () => {
                     >
                       RESET POSITIONS
                     </button>
-                    <label className="px-4 py-1.5 text-xs font-bold border border-zinc-700 rounded hover:bg-zinc-800 transition-colors cursor-pointer">
-                      NEW FILE
-                      <input type="file" className="hidden" accept="image/*,video/*" onChange={handleFileUpload} />
-                    </label>
+                    <button 
+                      onClick={() => setState(prev => ({ ...prev, image: null, videoSrc: null, youtubeId: null }))}
+                      className="px-4 py-1.5 text-xs font-bold border border-zinc-700 rounded hover:bg-zinc-800 transition-colors"
+                    >
+                      NEW SESSION
+                    </button>
                   </div>
                 </div>
                 

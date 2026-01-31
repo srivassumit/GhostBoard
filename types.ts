@@ -19,6 +19,7 @@ export interface SimulationResult {
 export interface AppState {
   image: string | null;
   videoSrc: string | null;
+  youtubeId: string | null;
   players: Player[];
   originalPlayers: Player[];
   isAnalyzing: boolean;
