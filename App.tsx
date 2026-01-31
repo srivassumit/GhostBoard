@@ -71,7 +71,8 @@ const App: React.FC = () => {
   };
 
   const extractYoutubeId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    // Extended regex to support 'shorts/' and handle robust matching
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : null;
   };
@@ -98,6 +99,7 @@ const App: React.FC = () => {
       try {
         setState(prev => ({ ...prev, isAnalyzing: true }));
         // Use a CORS proxy to fetch the thumbnail since direct access is blocked
+        // Fallback to high quality (hqdefault) if maxresdefault doesn't exist (handled by some proxies, but here we try maxres)
         const thumbnailUrl = `https://img.youtube.com/vi/${state.youtubeId}/maxresdefault.jpg`;
         const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(thumbnailUrl)}`;
         
@@ -185,7 +187,7 @@ const App: React.FC = () => {
           </h1>
         </div>
         <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
-          <span className="px-2 py-1 border border-zinc-800 rounded">v1.1.0_BETA</span>
+          <span className="px-2 py-1 border border-zinc-800 rounded">v1.1.1_HOTFIX</span>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
             SYSTEM ONLINE
@@ -266,9 +268,10 @@ const App: React.FC = () => {
                 {state.youtubeId ? (
                   <iframe 
                     className="w-full h-full"
-                    src={`https://www.youtube.com/embed/${state.youtubeId}?rel=0&modestbranding=1`}
+                    src={`https://www.youtube-nocookie.com/embed/${state.youtubeId}?rel=0&modestbranding=1&controls=1&playsinline=1&origin=${encodeURIComponent(window.location.origin)}`}
                     title="YouTube video player"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerPolicy="strict-origin-when-cross-origin"
                     allowFullScreen
                   ></iframe>
                 ) : (
