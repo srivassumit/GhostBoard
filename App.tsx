@@ -4,6 +4,7 @@ import { analyzeSportsFrame, simulatePlay } from './backend/main';
 import { AppState } from './types';
 import { TacticalBoard } from './components/TacticalBoard';
 import { WinProbabilityGauge } from './components/WinProbabilityGauge';
+import { SimulationPlayer } from './components/SimulationPlayer';
 
 // Fix for "Cannot find name 'ImageCapture'" error
 declare class ImageCapture {
@@ -26,6 +27,7 @@ const App: React.FC = () => {
     isAnalyzing: false,
     isSimulating: false,
     simulationResult: null,
+    showAnimation: false,
   });
 
   const [inputMode, setInputMode] = useState<'upload' | 'url'>('upload');
@@ -48,7 +50,8 @@ const App: React.FC = () => {
       players: [], 
       originalPlayers: [],
       detectedSport: null,
-      simulationResult: null 
+      simulationResult: null,
+      showAnimation: false
     }));
 
     try {
@@ -80,7 +83,8 @@ const App: React.FC = () => {
         youtubeId: null,
         image: null,
         players: [],
-        simulationResult: null
+        simulationResult: null,
+        showAnimation: false
       }));
     } else {
       const reader = new FileReader();
@@ -107,7 +111,8 @@ const App: React.FC = () => {
         youtubeId: id,
         image: null,
         players: [],
-        simulationResult: null
+        simulationResult: null,
+        showAnimation: false
       }));
     } else {
       alert("Invalid YouTube URL");
@@ -213,7 +218,12 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, isSimulating: true }));
     try {
       const result = await simulatePlay(state.originalPlayers, state.players, state.detectedSport || 'Sports');
-      setState(prev => ({ ...prev, simulationResult: result, isSimulating: false }));
+      setState(prev => ({ 
+        ...prev, 
+        simulationResult: result, 
+        isSimulating: false,
+        showAnimation: true // Switch to animation view automatically
+      }));
     } catch (err) {
       console.error(err);
       setState(prev => ({ ...prev, isSimulating: false }));
@@ -225,7 +235,8 @@ const App: React.FC = () => {
     setState(prev => ({
       ...prev,
       players: JSON.parse(JSON.stringify(prev.originalPlayers)),
-      simulationResult: null
+      simulationResult: null,
+      showAnimation: false
     }));
   };
 
@@ -234,7 +245,8 @@ const App: React.FC = () => {
       ...prev,
       image: null,
       players: [],
-      simulationResult: null
+      simulationResult: null,
+      showAnimation: false
     }));
   };
 
@@ -412,7 +424,7 @@ const App: React.FC = () => {
                       <div className="flex items-center gap-4">
                         <h3 className="font-orbitron text-lg font-bold flex items-center gap-2">
                           <span className="w-1 h-5 bg-emerald-500"></span>
-                          TACTICAL OVERLAY
+                          {state.showAnimation ? 'PREDICTION REPLAY' : 'TACTICAL OVERLAY'}
                         </h3>
                         {state.detectedSport && (
                            <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/30 rounded text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
@@ -421,6 +433,19 @@ const App: React.FC = () => {
                         )}
                       </div>
                       <div className="flex gap-2">
+                        {/* Toggle between Edit and Replay */}
+                        {state.simulationResult && (
+                           <button 
+                             onClick={() => setState(prev => ({ ...prev, showAnimation: !prev.showAnimation }))}
+                             className={`px-4 py-1.5 text-xs font-bold rounded border transition-colors ${
+                               state.showAnimation 
+                                ? 'bg-zinc-800 border-zinc-600 text-white' 
+                                : 'bg-emerald-500 border-emerald-400 text-black'
+                             }`}
+                           >
+                             {state.showAnimation ? 'EDIT POSITIONS' : 'VIEW REPLAY'}
+                           </button>
+                        )}
                         {(state.videoSrc || state.youtubeId) && (
                           <button 
                             onClick={backToVideo}
@@ -445,12 +470,21 @@ const App: React.FC = () => {
                     </div>
                     
                     {state.image && (
-                      <TacticalBoard 
-                        image={state.image} 
-                        players={state.players} 
-                        onPlayerMove={handlePlayerMove}
-                        disabled={state.isAnalyzing || state.isSimulating}
-                      />
+                      state.showAnimation && state.simulationResult?.predictionSequence ? (
+                         <SimulationPlayer 
+                            image={state.image}
+                            initialPlayers={state.players}
+                            sequence={state.simulationResult.predictionSequence}
+                            verdict={state.simulationResult.verdict}
+                         />
+                      ) : (
+                        <TacticalBoard 
+                          image={state.image} 
+                          players={state.players} 
+                          onPlayerMove={handlePlayerMove}
+                          disabled={state.isAnalyzing || state.isSimulating}
+                        />
+                      )
                     )}
                   </div>
 
@@ -464,7 +498,7 @@ const App: React.FC = () => {
                     </div>
                   )}
 
-                  {state.players.length > 0 && !state.isAnalyzing && (
+                  {state.players.length > 0 && !state.isAnalyzing && !state.showAnimation && (
                     <div className="bg-zinc-900/50 p-4 border border-zinc-800 rounded-xl">
                       <div className="flex items-center justify-between mb-4">
                         <div>

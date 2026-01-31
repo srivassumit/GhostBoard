@@ -80,7 +80,8 @@ export async function simulatePlay(original: Player[], modified: Player[], sport
       verdict: "Inconclusive",
       butterflyEffect: "The simulation engine encountered a data mismatch or API error.",
       originalWinProbability: 0,
-      newWinProbability: 0
+      newWinProbability: 0,
+      predictionSequence: []
     };
   }
 }

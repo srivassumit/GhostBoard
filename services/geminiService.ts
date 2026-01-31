@@ -49,7 +49,8 @@ export async function simulatePlay(original: Player[], modified: Player[]): Prom
       verdict: "Inconclusive",
       butterflyEffect: "The simulation engine encountered a data mismatch.",
       originalWinProbability: 0,
-      newWinProbability: 0
+      newWinProbability: 0,
+      predictionSequence: []
     };
   }
 }

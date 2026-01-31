@@ -15,6 +15,10 @@ export interface SimulationResult {
   originalWinProbability: number;
   newWinProbability: number;
   groundingUrls?: string[];
+  predictionSequence: {
+    step: number;
+    updates: { id: string; x: number; y: number }[];
+  }[];
 }
 
 export interface AppState {
@@ -27,4 +31,5 @@ export interface AppState {
   isAnalyzing: boolean;
   isSimulating: boolean;
   simulationResult: SimulationResult | null;
+  showAnimation: boolean;
 }
