@@ -235,9 +235,9 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0a0a0c] text-slate-200">
+    <div className="h-screen w-screen flex flex-col bg-[#0a0a0c] text-slate-200 overflow-hidden">
       {/* Header */}
-      <header className="h-16 border-b border-emerald-500/20 flex items-center justify-between px-8 bg-zinc-950/50 backdrop-blur-md sticky top-0 z-50">
+      <header className="h-16 flex-none border-b border-emerald-500/20 flex items-center justify-between px-8 bg-zinc-950/50 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded bg-emerald-500 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.5)]">
@@ -282,7 +282,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 overflow-hidden relative">
+      <main className="flex-1 relative overflow-hidden">
         {/* === TAB 1: GHOSTPLAY (Existing Functionality) === */}
         {/* If in video mode, remove padding and gap to allow full-screen effect */}
         <div className={activeTab === 'ghostplay' ? `w-full h-full flex flex-col lg:flex-row ${isVideoMode ? 'p-0 gap-0' : 'p-6 gap-6'}` : "hidden"}>
@@ -362,7 +362,7 @@ const App: React.FC = () => {
                   {/* Video Player */}
                   {state.youtubeId ? (
                     <iframe 
-                      className="w-full h-full"
+                      className="absolute inset-0 w-full h-full"
                       src={`https://www.youtube-nocookie.com/embed/${state.youtubeId}?rel=0&modestbranding=1&controls=1&playsinline=1&origin=${encodeURIComponent(window.location.origin)}`}
                       title="YouTube video player"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -569,7 +569,7 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      <footer className="h-8 flex items-center justify-center px-8 border-t border-white/5 bg-black/50 text-[10px] font-bold text-slate-600 tracking-tighter">
+      <footer className="h-8 flex-none border-t border-white/5 bg-black/50 flex items-center justify-center px-8 text-[10px] font-bold text-slate-600 tracking-tighter">
         PLAYLENS // TACTICAL INTELLIGENCE SUITE // 2024
       </footer>
     </div>
