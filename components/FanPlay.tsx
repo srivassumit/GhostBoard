@@ -25,11 +25,16 @@ const AnalysisCard = ({ title, content, icon, color }: { title: string, content:
   );
 };
 
+const SPORT_ICONS: Record<SportType, string> = {
+  'Tennis': '🎾',
+  'American Football': '🏈',
+  'Soccer': '⚽'
+};
+
 export const FanPlay: React.FC = () => {
   const [sport, setSport] = useState<SportType>('Tennis');
   const [persona, setPersona] = useState<PersonaType>('beginner');
   const [url, setUrl] = useState('');
-  const [file, setFile] = useState<File | null>(null);
   const [lastSource, setLastSource] = useState<string | null>(null);
 
   const [state, setState] = useState<AnalysisState>({
@@ -39,23 +44,23 @@ export const FanPlay: React.FC = () => {
   });
 
   useEffect(() => {
-    const currentSource = url || (file ? file.name : null);
+    const currentSource = url;
     if (state.result && currentSource === lastSource) {
       handleAnalysis();
     }
   }, [persona]);
 
   const handleAnalysis = async () => {
-    const currentSource = url || (file ? file.name : null);
+    const currentSource = url;
     if (!currentSource) {
-      setState(prev => ({ ...prev, error: 'Please provide a link or upload a file.' }));
+      setState(prev => ({ ...prev, error: 'Please provide a link.' }));
       return;
     }
 
     setState(prev => ({ ...prev, isAnalyzing: true, error: null }));
 
     try {
-      const result = await analyzeSportsMoment(sport, persona, url || file!, !!url);
+      const result = await analyzeSportsMoment(sport, persona, url, true);
 
       setState({ isAnalyzing: false, error: null, result });
       setLastSource(currentSource);
@@ -70,7 +75,7 @@ export const FanPlay: React.FC = () => {
         {/* Header */}
         <header className="text-center mb-12">
           <div className="inline-flex items-center justify-center p-3 bg-green-500/10 rounded-3xl mb-6 border border-green-500/20">
-            <span className="text-3xl">🎾</span>
+            <span className="text-3xl">{SPORT_ICONS[sport]}</span>
           </div>
           <h1 className="text-4xl md:text-5xl font-black mb-4 tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-green-400 via-emerald-400 to-blue-500">
             FANPLAY
@@ -85,7 +90,7 @@ export const FanPlay: React.FC = () => {
           <div className="mb-10">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-4">Choose your sport</label>
             <div className="flex flex-wrap gap-2">
-              {(['Tennis', 'American Football', 'Basketball', 'Soccer'] as SportType[]).map((s) => (
+              {(['Tennis', 'American Football', 'Soccer'] as SportType[]).map((s) => (
                 <button
                   key={s}
                   onClick={() => { setSport(s); setLastSource(null); }}
@@ -128,18 +133,7 @@ export const FanPlay: React.FC = () => {
               placeholder="Paste the YouTube link (e.g. Nadal vs Federer 2008)..."
               className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-6 py-5 focus:outline-none focus:ring-2 focus:ring-green-500 text-slate-200 transition-all font-medium"
               value={url}
-              onChange={(e) => { setUrl(e.target.value); setFile(null); }}
-            />
-            <div className="flex items-center gap-4 text-slate-700">
-              <div className="h-px flex-1 bg-slate-800"></div>
-              <span className="text-[10px] font-black tracking-widest">OR</span>
-              <div className="h-px flex-1 bg-slate-800"></div>
-            </div>
-            <input
-              type="file"
-              accept="image/*,video/*"
-              onChange={(e) => { if (e.target.files?.[0]) { setFile(e.target.files[0]); setUrl(''); } }}
-              className="block w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-6 file:rounded-2xl file:border-0 file:text-sm file:font-bold file:bg-slate-800 file:text-slate-300 cursor-pointer"
+              onChange={(e) => { setUrl(e.target.value); }}
             />
           </div>
 

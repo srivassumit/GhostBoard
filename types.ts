@@ -50,6 +50,6 @@ export interface AnalysisState {
   result: GuideResponse | null;
 }
 
-export type SportType = 'American Football' | 'Basketball' | 'Soccer' | 'Tennis';
+export type SportType = 'American Football' | 'Soccer' | 'Tennis';
 
 export type PersonaType = 'beginner' | 'new_fan' | 'hardcore';
