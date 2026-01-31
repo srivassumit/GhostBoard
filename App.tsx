@@ -98,13 +98,24 @@ const App: React.FC = () => {
     if (state.youtubeId) {
       try {
         setState(prev => ({ ...prev, isAnalyzing: true }));
-        // Use a CORS proxy to fetch the thumbnail since direct access is blocked
-        // Fallback to high quality (hqdefault) if maxresdefault doesn't exist (handled by some proxies, but here we try maxres)
-        const thumbnailUrl = `https://img.youtube.com/vi/${state.youtubeId}/maxresdefault.jpg`;
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(thumbnailUrl)}`;
         
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error("Failed to fetch thumbnail");
+        // Helper to fetch thumbnail via a robust image proxy (wsrv.nl) that handles CORS
+        const fetchThumbnail = async (quality: string) => {
+          const targetUrl = `https://img.youtube.com/vi/${state.youtubeId}/${quality}.jpg`;
+          const proxyUrl = `https://wsrv.nl/?url=${encodeURIComponent(targetUrl)}&output=jpg`;
+          return fetch(proxyUrl);
+        };
+
+        // Try maxresdefault first (highest quality)
+        let response = await fetchThumbnail('maxresdefault');
+        
+        // Fallback to hqdefault if maxres fails (common on some videos)
+        if (!response.ok) {
+          console.warn("maxresdefault unavailable, falling back to hqdefault");
+          response = await fetchThumbnail('hqdefault');
+        }
+
+        if (!response.ok) throw new Error("Failed to retrieve thumbnail from YouTube");
         
         const blob = await response.blob();
         const reader = new FileReader();
@@ -115,7 +126,7 @@ const App: React.FC = () => {
         reader.readAsDataURL(blob);
       } catch (e) {
         console.error("Thumbnail fetch error", e);
-        alert("Could not load video thumbnail for analysis. Try uploading a screenshot.");
+        alert("Could not load video thumbnail. The video might be private, region-locked, or missing a thumbnail.");
         setState(prev => ({ ...prev, isAnalyzing: false }));
       }
       return;
@@ -187,7 +198,7 @@ const App: React.FC = () => {
           </h1>
         </div>
         <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
-          <span className="px-2 py-1 border border-zinc-800 rounded">v1.1.1_HOTFIX</span>
+          <span className="px-2 py-1 border border-zinc-800 rounded">v1.1.2_STABLE</span>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
             SYSTEM ONLINE
