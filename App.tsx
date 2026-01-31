@@ -1,13 +1,14 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import { analyzeSportsFrame, simulatePlay } from './backend/main';
-import { Player, AppState, SimulationResult } from './types';
+import { AppState } from './types';
 import { TacticalBoard } from './components/TacticalBoard';
 import { WinProbabilityGauge } from './components/WinProbabilityGauge';
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>({
     image: null,
+    videoSrc: null,
     players: [],
     originalPlayers: [],
     isAnalyzing: false,
@@ -15,37 +16,69 @@ const App: React.FC = () => {
     simulationResult: null,
   });
 
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const processImage = async (base64: string) => {
+    setState(prev => ({ 
+      ...prev, 
+      image: base64, 
+      isAnalyzing: true, 
+      players: [], 
+      originalPlayers: [],
+      simulationResult: null 
+    }));
+
+    try {
+      const detectedPlayers = await analyzeSportsFrame(base64);
+      setState(prev => ({
+        ...prev,
+        players: detectedPlayers,
+        originalPlayers: JSON.parse(JSON.stringify(detectedPlayers)),
+        isAnalyzing: false
+      }));
+    } catch (err) {
+      console.error(err);
+      setState(prev => ({ ...prev, isAnalyzing: false }));
+      alert("Failed to analyze image. Check console.");
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const base64 = event.target?.result as string;
-      setState(prev => ({ 
-        ...prev, 
-        image: base64, 
-        isAnalyzing: true, 
-        players: [], 
-        originalPlayers: [],
-        simulationResult: null 
+    if (file.type.startsWith('video/')) {
+      const videoUrl = URL.createObjectURL(file);
+      setState(prev => ({
+        ...prev,
+        videoSrc: videoUrl,
+        image: null,
+        players: [],
+        simulationResult: null
       }));
+    } else {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64 = event.target?.result as string;
+        processImage(base64);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
-      try {
-        const detectedPlayers = await analyzeSportsFrame(base64);
-        setState(prev => ({
-          ...prev,
-          players: detectedPlayers,
-          originalPlayers: JSON.parse(JSON.stringify(detectedPlayers)),
-          isAnalyzing: false
-        }));
-      } catch (err) {
-        console.error(err);
-        setState(prev => ({ ...prev, isAnalyzing: false }));
-        alert("Failed to analyze image. Check console.");
-      }
-    };
-    reader.readAsDataURL(file);
+  const captureFrame = () => {
+    if (!videoRef.current) return;
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    const base64 = canvas.toDataURL('image/jpeg');
+    processImage(base64);
   };
 
   const handlePlayerMove = (id: string, x: number, y: number) => {
@@ -77,6 +110,15 @@ const App: React.FC = () => {
     }));
   };
 
+  const backToVideo = () => {
+    setState(prev => ({
+      ...prev,
+      image: null,
+      players: [],
+      simulationResult: null
+    }));
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#0a0a0c] text-slate-200">
       {/* Header */}
@@ -101,22 +143,62 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col lg:flex-row gap-6 p-6 overflow-hidden">
         {/* Left Side: Interaction Zone */}
         <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2">
-          {!state.image ? (
+          {!state.image && !state.videoSrc ? (
             <div className="flex-1 flex flex-col items-center justify-center cyber-border rounded-2xl bg-zinc-900/30 p-12 text-center">
               <div className="w-20 h-20 mb-6 rounded-full bg-zinc-800 flex items-center justify-center border-2 border-dashed border-emerald-500/50">
                 <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-orbitron font-bold mb-2">INITIALIZE TACTICAL FRAME</h2>
-              <p className="text-slate-500 mb-8 max-w-sm">Upload a screenshot of a sports play to start your counterfactual simulation.</p>
+              <h2 className="text-2xl font-orbitron font-bold mb-2">INITIALIZE TACTICAL FEED</h2>
+              <p className="text-slate-500 mb-8 max-w-sm">Upload a video clip or screenshot of a sports play to start your counterfactual simulation.</p>
               <label className="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-orbitron font-bold rounded-full cursor-pointer transition-all transform hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-                SELECT FRAME
-                <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                SELECT MEDIA
+                <input type="file" className="hidden" accept="image/*,video/*" onChange={handleFileUpload} />
               </label>
+            </div>
+          ) : !state.image && state.videoSrc ? (
+            <div className="flex flex-col gap-4 h-full">
+              <div className="flex items-center justify-between">
+                <h3 className="font-orbitron text-lg font-bold flex items-center gap-2">
+                  <span className="w-1 h-5 bg-emerald-500"></span>
+                  VIDEO ANALYSIS
+                </h3>
+                <label className="px-4 py-1.5 text-xs font-bold border border-zinc-700 rounded hover:bg-zinc-800 transition-colors cursor-pointer">
+                  CHANGE SOURCE
+                  <input type="file" className="hidden" accept="image/*,video/*" onChange={handleFileUpload} />
+                </label>
+              </div>
+              
+              <div className="relative flex-1 bg-black rounded-lg border border-zinc-800 overflow-hidden flex flex-col">
+                <video 
+                  ref={videoRef}
+                  src={state.videoSrc} 
+                  controls 
+                  className="w-full h-full object-contain"
+                />
+                
+                <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2">
+                   <button 
+                    onClick={captureFrame}
+                    className="px-8 py-4 bg-emerald-500/90 hover:bg-emerald-400 backdrop-blur-sm text-black font-orbitron font-black text-lg rounded-full shadow-[0_0_30px_rgba(16,185,129,0.4)] flex items-center gap-3 transition-all hover:scale-105"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    ANALYZE THIS FRAME
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-4 bg-zinc-900/50 rounded-lg border border-zinc-800 text-xs text-slate-400">
+                <strong className="text-emerald-500">INSTRUCTIONS:</strong> Pause the video at the critical moment you want to simulate, then click "Analyze This Frame".
+              </div>
             </div>
           ) : (
             <>
+              {/* Tactical Board View */}
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-orbitron text-lg font-bold flex items-center gap-2">
@@ -124,6 +206,14 @@ const App: React.FC = () => {
                     TACTICAL OVERLAY
                   </h3>
                   <div className="flex gap-2">
+                    {state.videoSrc && (
+                      <button 
+                        onClick={backToVideo}
+                        className="px-4 py-1.5 text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-emerald-400 border border-emerald-500/30 rounded transition-colors flex items-center gap-2"
+                      >
+                        ← BACK TO VIDEO
+                      </button>
+                    )}
                     <button 
                       onClick={resetBoard}
                       className="px-4 py-1.5 text-xs font-bold border border-zinc-700 rounded hover:bg-zinc-800 transition-colors"
@@ -131,18 +221,20 @@ const App: React.FC = () => {
                       RESET POSITIONS
                     </button>
                     <label className="px-4 py-1.5 text-xs font-bold border border-zinc-700 rounded hover:bg-zinc-800 transition-colors cursor-pointer">
-                      RELOAD FRAME
-                      <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                      NEW FILE
+                      <input type="file" className="hidden" accept="image/*,video/*" onChange={handleFileUpload} />
                     </label>
                   </div>
                 </div>
                 
-                <TacticalBoard 
-                  image={state.image} 
-                  players={state.players} 
-                  onPlayerMove={handlePlayerMove}
-                  disabled={state.isAnalyzing || state.isSimulating}
-                />
+                {state.image && (
+                  <TacticalBoard 
+                    image={state.image} 
+                    players={state.players} 
+                    onPlayerMove={handlePlayerMove}
+                    disabled={state.isAnalyzing || state.isSimulating}
+                  />
+                )}
               </div>
 
               {state.isAnalyzing && (
