@@ -1,6 +1,5 @@
-
 import React, { useState, useCallback } from 'react';
-import { analyzeSportsFrame, simulatePlay } from './services/geminiService';
+import { analyzeSportsFrame, simulatePlay } from './backend/main';
 import { Player, AppState, SimulationResult } from './types';
 import { TacticalBoard } from './components/TacticalBoard';
 
