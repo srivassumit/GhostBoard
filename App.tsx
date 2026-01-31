@@ -521,8 +521,9 @@ const App: React.FC = () => {
                         <section>
                           <label className="text-[10px] font-bold text-emerald-400/50 uppercase tracking-widest block mb-2">Verdict</label>
                           <div className={`text-3xl font-orbitron font-black ${
-                            state.simulationResult?.verdict === 'Success' ? 'text-emerald-500' :
-                            state.simulationResult?.verdict === 'Failure' ? 'text-rose-500' : 'text-amber-500'
+                            state.simulationResult?.verdict === 'Goal Likely' ? 'text-emerald-500' :
+                            state.simulationResult?.verdict === 'Defense Likely' ? 'text-rose-500' : 
+                            state.simulationResult?.verdict === 'No Immediate Threat' ? 'text-blue-400' : 'text-amber-500'
                           }`}>
                             {state.simulationResult?.verdict}
                           </div>

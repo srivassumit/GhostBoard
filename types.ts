@@ -10,7 +10,7 @@ export interface Player {
 
 export interface SimulationResult {
   analysis: string;
-  verdict: 'Success' | 'Failure' | 'Inconclusive';
+  verdict: 'Goal Likely' | 'Defense Likely' | 'Inconclusive' | 'No Immediate Threat';
   butterflyEffect: string;
   originalWinProbability: number;
   newWinProbability: number;
