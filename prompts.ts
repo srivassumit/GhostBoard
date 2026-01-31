@@ -4,12 +4,13 @@ import { Type } from "@google/genai";
 export const VISION_PROMPT = `Analyze this sports play image. 
 1. Identify the specific sport being played (e.g. Soccer, Tennis, Basketball, American Football, Cricket).
 2. Identify all key players on the field and the ball. 
-3. Return a JSON object containing the detected sport and an array of players.
+3. Identify the Goal, Net, Basket, or Wickets if visible (set type to 'goal_net').
+4. Return a JSON object containing the detected sport and an array of players/items.
 
 Coordinates (x, y) must be integers from 0 to 100 representing their position relative to the image dimensions (percentage).
 Team should be 'home', 'away', or 'neutral'.
-Type should be 'player' or 'ball'.
-Label should be a short identifier like 'ST', 'GK', 'DEF-1', 'BALL'.
+Type should be 'player', 'ball', or 'goal_net'.
+Label should be a short identifier like 'ST', 'GK', 'DEF-1', 'BALL', 'NET'.
 
 Respond ONLY with valid JSON.`;
 
@@ -23,7 +24,7 @@ export const PLAYER_SCHEMA = {
         type: Type.OBJECT,
         properties: {
           id: { type: Type.STRING },
-          type: { type: Type.STRING, enum: ['player', 'ball'] },
+          type: { type: Type.STRING, enum: ['player', 'ball', 'goal_net'] },
           team: { type: Type.STRING, enum: ['home', 'away', 'neutral'] },
           x: { type: Type.INTEGER },
           y: { type: Type.INTEGER },
@@ -48,9 +49,13 @@ ${modified}
 
 **GROUNDING INSTRUCTIONS (CRITICAL):**
 1. **Context:** Use the specific rules and tactical trends of ${sport}. Use Google Search to verify specific rule constraints (e.g., offside lines in Soccer, formations in American Football) if needed to ground your answer.
-2. **Phase of Play:** Is this a high-threat scoring opportunity or a low-threat situation?
-3. **Do Not Hallucinate:** If the situation doesn't warrant a score, verdict should be 'No Immediate Threat'.
-4. **Verdict Logic:**
+2. **Goal Orientation:** If a 'goal_net' object is present, calculate the vector from the 'ball' to the 'goal_net'. 
+   - Is the path clear of defenders? 
+   - Is the angle favorable for a score?
+   - If the ball moves closer to the 'goal_net' with a clear line of sight, the Probability must increase significantly.
+3. **Phase of Play:** Is this a high-threat scoring opportunity or a low-threat situation?
+4. **Do Not Hallucinate:** If the situation doesn't warrant a score, verdict should be 'No Immediate Threat'.
+5. **Verdict Logic:**
    - If a score/goal is imminent/plausible in the Modified state -> 'Goal Likely'
    - If the defense neutralizes the threat -> 'Defense Likely'
    - If no immediate scoring chance -> 'No Immediate Threat'
@@ -58,7 +63,7 @@ ${modified}
 
 **Task:**
 1. Analyze the movement of players from the ORIGINAL to the MODIFIED state.
-2. Predict the immediate outcome based on ${sport} physics and strategy.
+2. Predict the immediate outcome based on ${sport} physics and strategy, paying close attention to the ball's relation to the goal/net.
 3. Discuss the 'Butterfly Effect': How does shifting these players change the shape?
 4. Estimate 'Scoring Probability' (Chance of a goal/point in this phase, 0-100).
 

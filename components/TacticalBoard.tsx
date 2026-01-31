@@ -85,7 +85,7 @@ export const TacticalBoard: React.FC<TacticalBoardProps> = ({
           style={{
             left: `${p.x}%`,
             top: `${p.y}%`,
-            zIndex: p.type === 'ball' ? 50 : 40
+            zIndex: p.type === 'ball' ? 50 : p.type === 'goal_net' ? 30 : 40
           }}
         >
           <div className={`
@@ -93,16 +93,26 @@ export const TacticalBoard: React.FC<TacticalBoardProps> = ({
             ${draggingId === p.id ? 'scale-125' : 'scale-100'}
             transition-transform duration-150
           `}>
-            {/* The Dot */}
+            {/* The Entity Indicator */}
             <div className={`
-              w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] font-bold shadow-lg
+              flex items-center justify-center font-bold shadow-lg
+              ${p.type === 'goal_net' 
+                ? 'w-12 h-8 rounded-sm border-2 bg-transparent border-emerald-400/80 shadow-[0_0_20px_rgba(52,211,153,0.3)]' 
+                : 'w-6 h-6 rounded-full border-2'
+              }
               ${p.type === 'ball' ? 'bg-white text-black border-zinc-400' : 
+                p.type === 'goal_net' ? '' :
                 p.team === 'home' ? 'bg-emerald-500 border-emerald-300' : 
                 p.team === 'away' ? 'bg-blue-500 border-blue-300' : 
                 'bg-zinc-500 border-zinc-300'}
               ${draggingId === p.id ? 'ring-4 ring-white/50' : ''}
             `}>
-              {p.label[0]}
+              {p.type === 'goal_net' ? (
+                // Net Pattern
+                <div className="w-full h-full opacity-30 bg-[repeating-linear-gradient(45deg,transparent,transparent_2px,#34d399_2px,#34d399_3px)]" />
+              ) : (
+                <span className="text-[10px]">{p.label[0]}</span>
+              )}
             </div>
             
             {/* Label */}

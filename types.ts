@@ -1,7 +1,7 @@
 
 export interface Player {
   id: string;
-  type: 'player' | 'ball';
+  type: 'player' | 'ball' | 'goal_net';
   team: 'home' | 'away' | 'neutral';
   x: number; // 0-100 percentage
   y: number; // 0-100 percentage
