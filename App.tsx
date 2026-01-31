@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { analyzeSportsFrame, simulatePlay } from './backend/main';
 import { AppState } from './types';
@@ -100,17 +101,18 @@ const App: React.FC = () => {
   };
 
   const captureFrame = async () => {
-    // Case 1: YouTube Video - Use Screen Capture API
-    if (state.youtubeId) {
+    // Case 1: YouTube Video - Use Screen Capture API with Smart Cropping
+    if (state.youtubeId && videoContainerRef.current) {
       try {
         // We can't access iframe content directly due to CORS.
         // We use the Screen Capture API to let the user "snapshot" the current tab.
         const stream = await navigator.mediaDevices.getDisplayMedia({
           video: {
             displaySurface: "browser", // Encourages browser tab sharing
-          } as any, // Type cast for newer properties
+          } as any, 
           audio: false,
-          selfBrowserSurface: "include" // Encourages allowing current tab
+          selfBrowserSurface: "include", // Encourages allowing current tab
+          preferCurrentTab: true, 
         } as any);
 
         const track = stream.getVideoTracks()[0];
@@ -140,17 +142,45 @@ const App: React.FC = () => {
         track.stop(); // Stop sharing immediately after capture
 
         if (bitmap) {
+          // Smart Cropping Logic
+          // 1. Get the bounding box of the video container relative to the viewport
+          const rect = videoContainerRef.current.getBoundingClientRect();
+
+          // 2. Calculate scaling factors. 
+          // The capture resolution might be different from window.innerWidth due to DPI (Retina) or Zoom.
+          const captureWidth = bitmap.width;
+          const captureHeight = bitmap.height;
+          
+          // Use clientWidth/Height to exclude scrollbars if present, 
+          // though innerWidth/Height is often what the capture represents.
+          // We assume "This Tab" capture maps roughly 1:1 to the viewport dimensions times device pixel ratio.
+          const viewportWidth = window.innerWidth;
+          const viewportHeight = window.innerHeight;
+
+          const scaleX = captureWidth / viewportWidth;
+          const scaleY = captureHeight / viewportHeight;
+
+          // 3. Calculate crop coordinates
+          // Ensure we don't crop outside bounds
+          const cropX = Math.max(0, rect.left * scaleX);
+          const cropY = Math.max(0, rect.top * scaleY);
+          const cropWidth = Math.min(captureWidth - cropX, rect.width * scaleX);
+          const cropHeight = Math.min(captureHeight - cropY, rect.height * scaleY);
+
           const canvas = document.createElement('canvas');
-          canvas.width = bitmap.width;
-          canvas.height = bitmap.height;
+          // Set canvas size to the displayed size of the video container (or natural size if prefered)
+          canvas.width = rect.width;
+          canvas.height = rect.height;
+          
           const ctx = canvas.getContext('2d');
           
           if (ctx) {
-            ctx.drawImage(bitmap, 0, 0);
-            
-            // Optional: Smart Crop if we can determine the video region relative to the screenshot?
-            // For now, we send the whole viewport. The Vision model is good at focusing on the content.
-            // If the user selects "This Tab", it captures the whole UI.
+            // Draw only the cropped region
+            ctx.drawImage(
+              bitmap, 
+              cropX, cropY, cropWidth, cropHeight, // Source crop
+              0, 0, canvas.width, canvas.height    // Destination
+            );
             
             const base64 = canvas.toDataURL('image/jpeg');
             processImage(base64);
@@ -345,7 +375,7 @@ const App: React.FC = () => {
               <div className="p-4 bg-zinc-900/50 rounded-lg border border-zinc-800 text-xs text-slate-400">
                 <strong className="text-emerald-500">INSTRUCTIONS:</strong> 
                 {state.youtubeId 
-                  ? " Pause the video at the critical moment. Click 'CAPTURE SCREEN' and select 'This Tab' in the browser dialog to analyze the current frame."
+                  ? " Click 'CAPTURE SCREEN' and select 'This Tab' in the browser dialog. We will automatically crop to the video player."
                   : " Pause the video at the critical moment you want to simulate, then click 'Analyze This Frame'."
                 }
               </div>
