@@ -1,0 +1,7 @@
+{
+  "name": "GhostBoard",
+  "description": "A counterfactual sports simulator that uses AI to detect players from images and predict how moving them would change the game's outcome.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
