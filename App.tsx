@@ -32,6 +32,9 @@ const App: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
+  // Determine if we should show the sidebar (only when we have an image to work with)
+  const showSidebar = !!state.image;
+
   // --- GhostPlay Logic ---
 
   const processImage = async (base64: string) => {
@@ -281,7 +284,7 @@ const App: React.FC = () => {
         {/* === TAB 1: GHOSTPLAY (Existing Functionality) === */}
         <div className={activeTab === 'ghostplay' ? "w-full h-full flex flex-col lg:flex-row gap-6 p-6" : "hidden"}>
             {/* Left Side: Interaction Zone */}
-            <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2">
+            <div className={`flex-1 flex flex-col gap-6 overflow-y-auto ${showSidebar ? 'pr-2' : ''}`}>
               {!state.image && !state.videoSrc && !state.youtubeId ? (
                 <div className="flex-1 flex flex-col items-center justify-center cyber-border rounded-2xl bg-zinc-900/30 p-12 text-center">
                   <div className="w-20 h-20 mb-6 rounded-full bg-zinc-800 flex items-center justify-center border-2 border-dashed border-emerald-500/50">
@@ -476,71 +479,73 @@ const App: React.FC = () => {
             </div>
 
             {/* Right Side: Analysis Results */}
-            <aside className="w-full lg:w-[400px] flex flex-col gap-6">
-              <div className="cyber-border rounded-2xl bg-zinc-900/30 flex-1 flex flex-col overflow-hidden">
-                <div className="p-4 border-b border-white/5 bg-white/5 font-orbitron text-sm font-bold tracking-widest flex items-center gap-2">
-                  <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                  ANALYSIS_OUTPUT
+            {showSidebar && (
+              <aside className="w-full lg:w-[400px] flex flex-col gap-6">
+                <div className="cyber-border rounded-2xl bg-zinc-900/30 flex-1 flex flex-col overflow-hidden">
+                  <div className="p-4 border-b border-white/5 bg-white/5 font-orbitron text-sm font-bold tracking-widest flex items-center gap-2">
+                    <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    ANALYSIS_OUTPUT
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    {!state.simulationResult && !state.isSimulating ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center opacity-30 grayscale">
+                        <svg className="w-12 h-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <p className="text-sm font-orbitron">AWAITING SIMULATION DATA</p>
+                      </div>
+                    ) : state.isSimulating ? (
+                      <div className="space-y-4">
+                        <div className="h-4 bg-zinc-800 rounded animate-pulse w-3/4"></div>
+                        <div className="h-4 bg-zinc-800 rounded animate-pulse"></div>
+                        <div className="h-4 bg-zinc-800 rounded animate-pulse w-5/6"></div>
+                        <div className="h-32 bg-zinc-800 rounded animate-pulse w-full"></div>
+                      </div>
+                    ) : (
+                      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        {state.simulationResult && (
+                          <WinProbabilityGauge 
+                            original={state.simulationResult.originalWinProbability}
+                            current={state.simulationResult.newWinProbability}
+                          />
+                        )}
+
+                        <section>
+                          <label className="text-[10px] font-bold text-emerald-400/50 uppercase tracking-widest block mb-2">Verdict</label>
+                          <div className={`text-3xl font-orbitron font-black ${
+                            state.simulationResult?.verdict === 'Success' ? 'text-emerald-500' :
+                            state.simulationResult?.verdict === 'Failure' ? 'text-rose-500' : 'text-amber-500'
+                          }`}>
+                            {state.simulationResult?.verdict}
+                          </div>
+                        </section>
+
+                        <section>
+                          <label className="text-[10px] font-bold text-emerald-400/50 uppercase tracking-widest block mb-2">Tactical Breakdown</label>
+                          <p className="text-sm leading-relaxed text-slate-300">
+                            {state.simulationResult?.analysis}
+                          </p>
+                        </section>
+
+                        <section className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
+                          <label className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest block mb-2">The Butterfly Effect</label>
+                          <p className="text-sm italic text-emerald-100/70">
+                            &ldquo;{state.simulationResult?.butterflyEffect}&rdquo;
+                          </p>
+                        </section>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                  {!state.simulationResult && !state.isSimulating ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center opacity-30 grayscale">
-                      <svg className="w-12 h-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      <p className="text-sm font-orbitron">AWAITING SIMULATION DATA</p>
-                    </div>
-                  ) : state.isSimulating ? (
-                    <div className="space-y-4">
-                      <div className="h-4 bg-zinc-800 rounded animate-pulse w-3/4"></div>
-                      <div className="h-4 bg-zinc-800 rounded animate-pulse"></div>
-                      <div className="h-4 bg-zinc-800 rounded animate-pulse w-5/6"></div>
-                      <div className="h-32 bg-zinc-800 rounded animate-pulse w-full"></div>
-                    </div>
-                  ) : (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                      {state.simulationResult && (
-                        <WinProbabilityGauge 
-                          original={state.simulationResult.originalWinProbability}
-                          current={state.simulationResult.newWinProbability}
-                        />
-                      )}
-
-                      <section>
-                        <label className="text-[10px] font-bold text-emerald-400/50 uppercase tracking-widest block mb-2">Verdict</label>
-                        <div className={`text-3xl font-orbitron font-black ${
-                          state.simulationResult?.verdict === 'Success' ? 'text-emerald-500' :
-                          state.simulationResult?.verdict === 'Failure' ? 'text-rose-500' : 'text-amber-500'
-                        }`}>
-                          {state.simulationResult?.verdict}
-                        </div>
-                      </section>
-
-                      <section>
-                        <label className="text-[10px] font-bold text-emerald-400/50 uppercase tracking-widest block mb-2">Tactical Breakdown</label>
-                        <p className="text-sm leading-relaxed text-slate-300">
-                          {state.simulationResult?.analysis}
-                        </p>
-                      </section>
-
-                      <section className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
-                        <label className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest block mb-2">The Butterfly Effect</label>
-                        <p className="text-sm italic text-emerald-100/70">
-                          &ldquo;{state.simulationResult?.butterflyEffect}&rdquo;
-                        </p>
-                      </section>
-                    </div>
-                  )}
+                <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 text-[10px] text-blue-300 leading-tight">
+                  <strong>PRO TIP:</strong> Moving defenders closer to the central axis typically reduces the likelihood of successful penetrating through-balls but increases vulnerability to wing-play overlaps.
                 </div>
-              </div>
-              
-              <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 text-[10px] text-blue-300 leading-tight">
-                <strong>PRO TIP:</strong> Moving defenders closer to the central axis typically reduces the likelihood of successful penetrating through-balls but increases vulnerability to wing-play overlaps.
-              </div>
-            </aside>
+              </aside>
+            )}
         </div>
 
         {/* === TAB 2: FANPLAY (Placeholder) === */}
