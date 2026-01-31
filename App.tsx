@@ -34,6 +34,8 @@ const App: React.FC = () => {
 
   // Determine if we should show the sidebar (only when we have an image to work with)
   const showSidebar = !!state.image;
+  // Determine if we are in pure video mode (no image captured yet)
+  const isVideoMode = !state.image && (!!state.videoSrc || !!state.youtubeId);
 
   // --- GhostPlay Logic ---
 
@@ -282,9 +284,10 @@ const App: React.FC = () => {
 
       <main className="flex-1 overflow-hidden relative">
         {/* === TAB 1: GHOSTPLAY (Existing Functionality) === */}
-        <div className={activeTab === 'ghostplay' ? "w-full h-full flex flex-col lg:flex-row gap-6 p-6" : "hidden"}>
+        {/* If in video mode, remove padding and gap to allow full-screen effect */}
+        <div className={activeTab === 'ghostplay' ? `w-full h-full flex flex-col lg:flex-row ${isVideoMode ? 'p-0 gap-0' : 'p-6 gap-6'}` : "hidden"}>
             {/* Left Side: Interaction Zone */}
-            <div className={`flex-1 flex flex-col gap-6 overflow-y-auto ${showSidebar ? 'pr-2' : ''}`}>
+            <div className={`flex-1 flex flex-col ${isVideoMode ? 'h-full' : 'gap-6 overflow-y-auto'} ${showSidebar ? 'pr-2' : ''}`}>
               {!state.image && !state.videoSrc && !state.youtubeId ? (
                 <div className="flex-1 flex flex-col items-center justify-center cyber-border rounded-2xl bg-zinc-900/30 p-12 text-center">
                   <div className="w-20 h-20 mb-6 rounded-full bg-zinc-800 flex items-center justify-center border-2 border-dashed border-emerald-500/50">
@@ -336,47 +339,50 @@ const App: React.FC = () => {
                     </div>
                   )}
                 </div>
-              ) : !state.image && (state.videoSrc || state.youtubeId) ? (
-                <div className="flex flex-col gap-4 h-full">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-orbitron text-lg font-bold flex items-center gap-2">
-                      <span className="w-1 h-5 bg-emerald-500"></span>
+              ) : isVideoMode ? (
+                // --- VIDEO MODE (Full Screen with Overlays) ---
+                <div 
+                  ref={videoContainerRef}
+                  className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden"
+                >
+                  {/* Top Bar Overlay */}
+                  <div className="absolute top-0 left-0 w-full p-6 flex items-start justify-between z-30 bg-gradient-to-b from-black/90 to-transparent pointer-events-none">
+                    <h3 className="font-orbitron text-lg font-bold flex items-center gap-2 text-white drop-shadow-md">
+                      <span className="w-1 h-5 bg-emerald-500 box-shadow-glow"></span>
                       VIDEO ANALYSIS
                     </h3>
                     <button 
                       onClick={() => setState(prev => ({ ...prev, videoSrc: null, youtubeId: null }))}
-                      className="px-4 py-1.5 text-xs font-bold border border-zinc-700 rounded hover:bg-zinc-800 transition-colors"
+                      className="pointer-events-auto px-4 py-2 text-xs font-bold bg-black/50 hover:bg-zinc-800 text-white border border-zinc-600 rounded backdrop-blur-md transition-all shadow-lg"
                     >
                       CHANGE SOURCE
                     </button>
                   </div>
+
+                  {/* Video Player */}
+                  {state.youtubeId ? (
+                    <iframe 
+                      className="w-full h-full"
+                      src={`https://www.youtube-nocookie.com/embed/${state.youtubeId}?rel=0&modestbranding=1&controls=1&playsinline=1&origin=${encodeURIComponent(window.location.origin)}`}
+                      title="YouTube video player"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      allowFullScreen
+                    ></iframe>
+                  ) : (
+                    <video 
+                      ref={videoRef}
+                      src={state.videoSrc!} 
+                      controls 
+                      className="w-full h-full object-contain"
+                    />
+                  )}
                   
-                  <div 
-                    ref={videoContainerRef}
-                    className="relative flex-1 bg-black rounded-lg border border-zinc-800 overflow-hidden flex flex-col"
-                  >
-                    {state.youtubeId ? (
-                      <iframe 
-                        className="w-full h-full"
-                        src={`https://www.youtube-nocookie.com/embed/${state.youtubeId}?rel=0&modestbranding=1&controls=1&playsinline=1&origin=${encodeURIComponent(window.location.origin)}`}
-                        title="YouTube video player"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        referrerPolicy="strict-origin-when-cross-origin"
-                        allowFullScreen
-                      ></iframe>
-                    ) : (
-                      <video 
-                        ref={videoRef}
-                        src={state.videoSrc!} 
-                        controls 
-                        className="w-full h-full object-contain"
-                      />
-                    )}
-                    
-                    <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 pointer-events-auto z-20">
-                      <button 
+                  {/* Bottom Controls Overlay */}
+                  <div className="absolute bottom-0 left-0 w-full p-8 pb-12 flex flex-col items-center justify-end z-30 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none">
+                     <button 
                         onClick={captureFrame}
-                        className="px-8 py-4 bg-emerald-500/90 hover:bg-emerald-400 backdrop-blur-sm text-black font-orbitron font-black text-lg rounded-full shadow-[0_0_30px_rgba(16,185,129,0.4)] flex items-center gap-3 transition-all hover:scale-105 whitespace-nowrap"
+                        className="pointer-events-auto mb-4 px-10 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-orbitron font-black text-xl rounded-full shadow-[0_0_40px_rgba(16,185,129,0.6)] flex items-center gap-3 transition-all transform hover:scale-105 active:scale-95 whitespace-nowrap border-2 border-white/20"
                       >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -384,15 +390,14 @@ const App: React.FC = () => {
                         </svg>
                         {state.youtubeId ? 'CAPTURE SCREEN' : 'ANALYZE THIS FRAME'}
                       </button>
-                    </div>
-                  </div>
-                  
-                  <div className="p-4 bg-zinc-900/50 rounded-lg border border-zinc-800 text-xs text-slate-400">
-                    <strong className="text-emerald-500">INSTRUCTIONS:</strong> 
-                    {state.youtubeId 
-                      ? " Click 'CAPTURE SCREEN' and select 'This Tab' in the browser dialog. We will automatically crop to the video player."
-                      : " Pause the video at the critical moment you want to simulate, then click 'Analyze This Frame'."
-                    }
+
+                      <div className="text-xs text-slate-300 bg-black/60 px-4 py-2 rounded-full backdrop-blur-sm border border-white/10">
+                        <strong className="text-emerald-400">INSTRUCTIONS:</strong> 
+                        {state.youtubeId 
+                          ? " Pause video, click Capture, then select 'This Tab' to crop & analyze."
+                          : " Pause at critical moment, then click Analyze."
+                        }
+                      </div>
                   </div>
                 </div>
               ) : (
