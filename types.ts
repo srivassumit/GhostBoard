@@ -12,6 +12,8 @@ export interface SimulationResult {
   analysis: string;
   verdict: 'Success' | 'Failure' | 'Inconclusive';
   butterflyEffect: string;
+  originalWinProbability: number;
+  newWinProbability: number;
 }
 
 export interface AppState {

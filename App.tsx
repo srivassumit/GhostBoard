@@ -1,7 +1,9 @@
+
 import React, { useState, useCallback } from 'react';
 import { analyzeSportsFrame, simulatePlay } from './backend/main';
 import { Player, AppState, SimulationResult } from './types';
 import { TacticalBoard } from './components/TacticalBoard';
+import { WinProbabilityGauge } from './components/WinProbabilityGauge';
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>({
@@ -210,6 +212,13 @@ const App: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  {state.simulationResult && (
+                    <WinProbabilityGauge 
+                      original={state.simulationResult.originalWinProbability}
+                      current={state.simulationResult.newWinProbability}
+                    />
+                  )}
+
                   <section>
                     <label className="text-[10px] font-bold text-emerald-400/50 uppercase tracking-widest block mb-2">Verdict</label>
                     <div className={`text-3xl font-orbitron font-black ${

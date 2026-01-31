@@ -40,13 +40,17 @@ Task:
 1. Analyze the movement of players from the ORIGINAL to the MODIFIED state.
 2. Predict the outcome of this specific play if the players had been in the NEW positions.
 3. Discuss the 'Butterfly Effect': How does shifting these specific players change the defensive shape or attacking opportunity?
-4. Provide a tactical verdict.
+4. Estimate the 'Goal/Score Probability' (scoring chance) for the attacking team in the ORIGINAL scenario as an integer (0-100).
+5. Estimate the 'Goal/Score Probability' for the attacking team in the MODIFIED scenario as an integer (0-100).
+6. Provide a tactical verdict.
 
 Format your response as a JSON object:
 {
   "analysis": "Detailed tactical breakdown...",
   "verdict": "Success | Failure | Inconclusive",
-  "butterflyEffect": "Short explanation of the cascading changes..."
+  "butterflyEffect": "Short explanation of the cascading changes...",
+  "originalWinProbability": 20,
+  "newWinProbability": 85
 }
 `;
 
@@ -56,6 +60,8 @@ export const SIMULATION_SCHEMA = {
     analysis: { type: Type.STRING },
     verdict: { type: Type.STRING, enum: ['Success', 'Failure', 'Inconclusive'] },
     butterflyEffect: { type: Type.STRING },
+    originalWinProbability: { type: Type.INTEGER },
+    newWinProbability: { type: Type.INTEGER },
   },
-  required: ['analysis', 'verdict', 'butterflyEffect'],
+  required: ['analysis', 'verdict', 'butterflyEffect', 'originalWinProbability', 'newWinProbability'],
 };

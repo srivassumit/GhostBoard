@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { VISION_PROMPT, PLAYER_SCHEMA, SIMULATION_PROMPT, SIMULATION_SCHEMA } from "../prompts";
 import { Player, SimulationResult } from "../types";
@@ -59,7 +60,9 @@ export async function simulatePlay(original: Player[], modified: Player[]): Prom
     return {
       analysis: "Error analyzing the simulation. Please try again.",
       verdict: "Inconclusive",
-      butterflyEffect: "The simulation engine encountered a data mismatch or API error."
+      butterflyEffect: "The simulation engine encountered a data mismatch or API error.",
+      originalWinProbability: 0,
+      newWinProbability: 0
     };
   }
 }
